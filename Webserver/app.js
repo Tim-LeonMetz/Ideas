@@ -285,22 +285,36 @@ function drawAsymptotes(asymptotes) {
 function drawGraph(points, zeros, asymptotes) {
     context.clearRect(0, 0, canvas.width, canvas.height);
     drawAxes();
-    drawAsymptotes(asymptotes);
 
     context.strokeStyle = "#d97706";
     context.lineWidth = 3;
 
     let started = false;
+    let previousPoint = null;
     context.beginPath();
 
     points.forEach(function (point) {
         if (!point) {
             started = false;
+            previousPoint = null;
             return;
         }
 
-        const pixelX = mapX(point[0]);
-        const pixelY = mapY(point[1]);
+        const x = point[0];
+        const y = point[1];
+
+        if (y < graphBounds.minY - 2 || y > graphBounds.maxY + 2) {
+            started = false;
+            previousPoint = null;
+            return;
+        }
+
+        if (previousPoint && Math.abs(y - previousPoint[1]) > (graphBounds.maxY - graphBounds.minY) * 0.8) {
+            started = false;
+        }
+
+        const pixelX = mapX(x);
+        const pixelY = mapY(y);
 
         if (!started) {
             context.moveTo(pixelX, pixelY);
@@ -308,9 +322,12 @@ function drawGraph(points, zeros, asymptotes) {
         } else {
             context.lineTo(pixelX, pixelY);
         }
+
+        previousPoint = point;
     });
 
     context.stroke();
+    drawAsymptotes(asymptotes);
 
     context.fillStyle = "#9a3412";
     zeros.forEach(function (zero) {
