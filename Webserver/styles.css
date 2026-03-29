@@ -213,6 +213,12 @@ body {
     line-height: 1.5;
 }
 
+.analysis-intro {
+    margin: 0 0 14px;
+    line-height: 1.5;
+    color: var(--muted);
+}
+
 form {
     display: grid;
     gap: 16px;

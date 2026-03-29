@@ -1,5 +1,4 @@
 const form = document.getElementById("zero-form");
-const resultBox = document.getElementById("result");
 const analysisBox = document.getElementById("analysis");
 const canvas = document.getElementById("graph-canvas");
 const context = canvas.getContext("2d");
@@ -77,7 +76,7 @@ screenButtons.forEach(function (button) {
 });
 
 function renderResult(text) {
-    resultBox.innerHTML = "<h2>Ergebnis</h2><p>" + prettifyGerman(text) + "</p>";
+    analysisBox.innerHTML = "<h2>Kurvendiskussion</h2><p class=\"analysis-intro\">" + prettifyGerman(text) + "</p>";
 }
 
 function createAnalysisRow(key, label, value) {
