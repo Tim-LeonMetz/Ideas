@@ -2,6 +2,7 @@ function normalizeExpression(input) {
     return input
         .toLowerCase()
         .replace(/\s+/g, "")
+        .replace(/ü/g, "u")
         .replace(/\u2212/g, "-")
         .replace(/\u00b2/g, "^2")
         .replace(/,/g, ".");
@@ -80,7 +81,7 @@ function safeEvaluate(fn, x) {
 
 function createDerivative(fn) {
     return function (x) {
-        const h = 1e-4;
+        const h = Math.max(1e-4, Math.abs(x) * 1e-5);
         const left = safeEvaluate(fn, x - h);
         const right = safeEvaluate(fn, x + h);
 
@@ -92,6 +93,112 @@ function createDerivative(fn) {
     };
 }
 
+function createSecondDerivative(fn) {
+    const firstDerivative = createDerivative(fn);
+    return createDerivative(firstDerivative);
+}
+
+function secantMethod(fn, x0, x1, tolerance, maxIterations) {
+    let previousX = x0;
+    let currentX = x1;
+    let previousY = safeEvaluate(fn, previousX);
+    let currentY = safeEvaluate(fn, currentX);
+
+    if (previousY === null || currentY === null) {
+        return null;
+    }
+
+    for (let iteration = 0; iteration < maxIterations; iteration += 1) {
+        const denominator = currentY - previousY;
+
+        if (Math.abs(denominator) < 1e-12) {
+            return null;
+        }
+
+        const nextX = currentX - currentY * (currentX - previousX) / denominator;
+
+        if (!Number.isFinite(nextX)) {
+            return null;
+        }
+
+        const nextY = safeEvaluate(fn, nextX);
+
+        if (nextY === null) {
+            return null;
+        }
+
+        if (Math.abs(nextY) < tolerance || Math.abs(nextX - currentX) < tolerance) {
+            return nextX;
+        }
+
+        previousX = currentX;
+        previousY = currentY;
+        currentX = nextX;
+        currentY = nextY;
+    }
+
+    return null;
+}
+
+function generateAdaptivePairs() {
+    const pairs = [[-1, 1], [0, 1], [-1, 0]];
+    let radius = 1;
+
+    for (let shell = 0; shell < 10; shell += 1) {
+        const nextRadius = radius * 2;
+        const step = radius / 2;
+
+        for (let x = -nextRadius; x < nextRadius; x += step) {
+            pairs.push([x, x + step]);
+        }
+
+        radius = nextRadius;
+    }
+
+    return pairs;
+}
+
+function findPointsWithSecant(fn, options) {
+    const tolerance = options && options.tolerance ? options.tolerance : 1e-7;
+    const uniquenessTolerance = options && options.uniquenessTolerance ? options.uniquenessTolerance : 1e-3;
+    const maxIterations = options && options.maxIterations ? options.maxIterations : 50;
+    const accept = options && options.accept ? options.accept : function () { return true; };
+
+    const points = [];
+    const pairs = generateAdaptivePairs();
+
+    pairs.forEach(function (pair) {
+        const root = secantMethod(fn, pair[0], pair[1], tolerance, maxIterations);
+
+        if (root === null) {
+            return;
+        }
+
+        const y = safeEvaluate(fn, root);
+
+        if (y === null || Math.abs(y) > 1e-4 || !accept(root)) {
+            return;
+        }
+
+        addUniquePoint(points, root, uniquenessTolerance);
+    });
+
+    return points.sort(function (a, b) {
+        return a - b;
+    });
+}
+
+function addUniquePoint(points, candidate, tolerance) {
+    const roundedCandidate = Number(candidate.toFixed(6));
+    const exists = points.some(function (point) {
+        return Math.abs(point - roundedCandidate) < tolerance;
+    });
+
+    if (!exists) {
+        points.push(roundedCandidate);
+    }
+}
+
 function findRoots(input) {
     const fn = createFunction(input);
 
@@ -99,7 +206,11 @@ function findRoots(input) {
         return null;
     }
 
-    const roots = findInterestingPoints(fn, -100, 100, 0.5);
+    const roots = findPointsWithSecant(fn, {
+        tolerance: 1e-8,
+        uniquenessTolerance: 1e-3,
+        maxIterations: 60
+    });
 
     return {
         zeros: roots,
@@ -107,94 +218,9 @@ function findRoots(input) {
     };
 }
 
-function bisectRoot(fn, left, right, epsilon) {
-    let leftValue = safeEvaluate(fn, left);
-    let rightValue = safeEvaluate(fn, right);
-
-    if (leftValue === null || rightValue === null) {
-        return null;
-    }
-
-    for (let iteration = 0; iteration < 100; iteration += 1) {
-        const middle = (left + right) / 2;
-        const middleValue = safeEvaluate(fn, middle);
-
-        if (middleValue === null) {
-            return null;
-        }
-
-        if (Math.abs(middleValue) < epsilon) {
-            return middle;
-        }
-
-        if (leftValue * middleValue < 0) {
-            right = middle;
-        } else {
-            left = middle;
-            leftValue = middleValue;
-        }
-
-        if (Math.abs(right - left) < epsilon) {
-            return (left + right) / 2;
-        }
-    }
-
-    return (left + right) / 2;
-}
-
-function addRoot(roots, candidate) {
-    const roundedCandidate = Number(candidate.toFixed(6));
-    const exists = roots.some(function (root) {
-        return Math.abs(root - roundedCandidate) < 1e-3;
-    });
-
-    if (!exists) {
-        roots.push(roundedCandidate);
-    }
-}
-
-function findInterestingPoints(fn, minX, maxX, step) {
-    const points = [];
-    let previousX = minX;
-    let previousY = safeEvaluate(fn, previousX);
-
-    if (previousY !== null && Math.abs(previousY) < 1e-4) {
-        addRoot(points, previousX);
-    }
-
-    for (let currentX = minX + step; currentX <= maxX; currentX += step) {
-        const currentY = safeEvaluate(fn, currentX);
-
-        if (currentY === null) {
-            previousX = currentX;
-            previousY = currentY;
-            continue;
-        }
-
-        if (Math.abs(currentY) < 1e-4) {
-            addRoot(points, currentX);
-        }
-
-        if (previousY !== null && previousY * currentY < 0) {
-            const root = bisectRoot(fn, previousX, currentX, 1e-7);
-
-            if (root !== null) {
-                addRoot(points, root);
-            }
-        }
-
-        previousX = currentX;
-        previousY = currentY;
-    }
-
-    return points.sort(function (a, b) {
-        return a - b;
-    });
-}
-
 function createResultMessage(count) {
     if (count === 0) {
-        return "Keine Nullstellen im Suchbereich gefunden";
+        return "Keine Nullstellen gefunden";
     }
 
     if (count === 1) {
@@ -212,33 +238,119 @@ function analyzeFunction(input) {
     }
 
     const firstDerivative = createDerivative(fn);
-    const secondDerivative = createDerivative(firstDerivative);
+    const secondDerivative = createSecondDerivative(fn);
     const roots = findRoots(input);
-    const criticalPoints = findInterestingPoints(firstDerivative, -20, 20, 0.25);
-    const curvatureZeros = findInterestingPoints(secondDerivative, -20, 20, 0.25);
+    const criticalPoints = findPointsWithSecant(firstDerivative, {
+        tolerance: 1e-7,
+        uniquenessTolerance: 1e-3,
+        maxIterations: 60
+    });
+    const inflectionCandidates = findPointsWithSecant(secondDerivative, {
+        tolerance: 1e-6,
+        uniquenessTolerance: 1e-3,
+        maxIterations: 60
+    });
+    const periodicAnalysis = describePeriodicAnalysis(input);
+    const normalizedInput = normalizeExpression(input);
 
     return {
+        domain: detectDomain(normalizedInput, fn),
         roots: roots,
         periodicRoots: describePeriodicRoots(input),
+        periodicAnalysis: periodicAnalysis,
         yIntercept: safeEvaluate(fn, 0),
         symmetry: detectSymmetry(fn),
-        extrema: classifyExtrema(fn, secondDerivative, criticalPoints),
-        inflectionPoints: classifyInflectionPoints(fn, secondDerivative, curvatureZeros),
-        monotonicity: buildIntervals(firstDerivative, -10, 10, 1, "monotonicity"),
-        curvature: buildIntervals(secondDerivative, -10, 10, 1, "curvature")
+        endBehavior: describeEndBehavior(fn),
+        asymptotes: detectAsymptotes(normalizedInput, fn),
+        extrema: classifyExtrema(fn, firstDerivative, secondDerivative, criticalPoints),
+        inflectionPoints: classifyInflectionPoints(fn, secondDerivative, inflectionCandidates),
+        monotonicity: buildGlobalBehaviorDescription(firstDerivative, criticalPoints, "monotonicity"),
+        curvature: buildGlobalBehaviorDescription(secondDerivative, inflectionCandidates, "curvature")
     };
 }
 
-function classifyExtrema(fn, secondDerivative, criticalPoints) {
+function detectDomain(normalizedInput, fn) {
+    if (normalizedInput.includes("log(")) {
+        return "eingeschraenkt; Argument von log muss groesser als 0 sein";
+    }
+
+    if (normalizedInput.includes("sqrt(")) {
+        return "eingeschraenkt; Argument von sqrt muss groesser oder gleich 0 sein";
+    }
+
+    const left = safeEvaluate(fn, -1);
+    const zero = safeEvaluate(fn, 0);
+    const right = safeEvaluate(fn, 1);
+
+    if (left !== null && zero !== null && right !== null) {
+        return "naeherungsweise alle reellen Zahlen";
+    }
+
+    return "nicht fuer alle reellen Zahlen definiert";
+}
+
+function describeEndBehavior(fn) {
+    const leftLarge = safeEvaluate(fn, -1000000);
+    const rightLarge = safeEvaluate(fn, 1000000);
+
+    return "x -> -inf: " + describeLimitValue(leftLarge) + "; x -> +inf: " + describeLimitValue(rightLarge);
+}
+
+function describeLimitValue(value) {
+    if (value === null) {
+        return "nicht eindeutig bestimmbar";
+    }
+
+    if (value > 100000) {
+        return "+inf";
+    }
+
+    if (value < -100000) {
+        return "-inf";
+    }
+
+    return formatNumber(value);
+}
+
+function detectAsymptotes(normalizedInput, fn) {
+    const hints = [];
+
+    if (normalizedInput.includes("tan(")) {
+        hints.push("vertikale Asymptoten periodisch vorhanden");
+    }
+
+    if (normalizedInput.includes("/")) {
+        hints.push("moegliche Polstellen bzw. vertikale Asymptoten");
+    }
+
+    const leftLarge = safeEvaluate(fn, -1000000);
+    const rightLarge = safeEvaluate(fn, 1000000);
+
+    if (leftLarge !== null && rightLarge !== null && almostEqual(leftLarge, rightLarge)) {
+        hints.push("waagerechte Asymptote y = " + formatNumber((leftLarge + rightLarge) / 2));
+    }
+
+    return hints.length > 0 ? hints.join(", ") : "keine offensichtlichen Asymptoten erkannt";
+}
+
+function classifyExtrema(fn, firstDerivative, secondDerivative, criticalPoints) {
     return criticalPoints.map(function (x) {
         const y = safeEvaluate(fn, x);
-        const curvature = safeEvaluate(secondDerivative, x);
+        const second = safeEvaluate(secondDerivative, x);
+        const left = safeEvaluate(firstDerivative, x - 1e-2);
+        const right = safeEvaluate(firstDerivative, x + 1e-2);
         let type = "Extremstelle";
 
-        if (curvature !== null) {
-            if (curvature > 0) {
+        if (left !== null && right !== null) {
+            if (left > 0 && right < 0) {
+                type = "Hochpunkt";
+            } else if (left < 0 && right > 0) {
                 type = "Tiefpunkt";
-            } else if (curvature < 0) {
+            }
+        } else if (second !== null) {
+            if (second > 0) {
+                type = "Tiefpunkt";
+            } else if (second < 0) {
                 type = "Hochpunkt";
             }
         }
@@ -252,14 +364,10 @@ function classifyExtrema(fn, secondDerivative, criticalPoints) {
 function classifyInflectionPoints(fn, secondDerivative, candidates) {
     return candidates.map(function (x) {
         const y = safeEvaluate(fn, x);
-        const left = safeEvaluate(secondDerivative, x - 0.05);
-        const right = safeEvaluate(secondDerivative, x + 0.05);
+        const left = safeEvaluate(secondDerivative, x - 1e-2);
+        const right = safeEvaluate(secondDerivative, x + 1e-2);
 
-        if (y === null || left === null || right === null) {
-            return null;
-        }
-
-        if (left * right > 0) {
+        if (y === null || left === null || right === null || left * right > 0) {
             return null;
         }
 
@@ -269,50 +377,76 @@ function classifyInflectionPoints(fn, secondDerivative, candidates) {
     });
 }
 
-function buildIntervals(fn, minX, maxX, step, type) {
+function buildGlobalBehaviorDescription(fn, changePoints, type) {
+    if (!changePoints || changePoints.length === 0) {
+        const sample = safeEvaluate(fn, 0);
+
+        if (sample === null || Math.abs(sample) < 1e-6) {
+            return ["Keine eindeutige globale Aussage erkannt"];
+        }
+
+        return [createGlobalIntervalText("-inf", "+inf", sample > 0 ? 1 : -1, type)];
+    }
+
+    const sortedPoints = changePoints.slice().sort(function (a, b) {
+        return a - b;
+    });
     const intervals = [];
-    let currentInterval = null;
+    const boundaries = [-Infinity].concat(sortedPoints).concat([Infinity]);
 
-    for (let x = minX; x <= maxX; x += step) {
-        const value = safeEvaluate(fn, x);
+    for (let index = 0; index < boundaries.length - 1; index += 1) {
+        const left = boundaries[index];
+        const right = boundaries[index + 1];
+        const samplePoint = chooseSamplePoint(left, right);
+        const value = safeEvaluate(fn, samplePoint);
 
-        if (value === null || Math.abs(value) < 1e-4) {
+        if (value === null || Math.abs(value) < 1e-6) {
             continue;
         }
 
-        const sign = value > 0 ? 1 : -1;
-
-        if (!currentInterval) {
-            currentInterval = { start: x, sign: sign };
-            continue;
-        }
-
-        if (sign !== currentInterval.sign) {
-            intervals.push(createIntervalLabel(currentInterval.start, x, currentInterval.sign, type));
-            currentInterval = { start: x, sign: sign };
-        }
+        intervals.push(createGlobalIntervalText(left, right, value > 0 ? 1 : -1, type));
     }
 
-    if (currentInterval) {
-        intervals.push(createIntervalLabel(currentInterval.start, maxX, currentInterval.sign, type));
-    }
-
-    return intervals;
+    return intervals.length > 0 ? intervals : ["Keine eindeutige globale Aussage erkannt"];
 }
 
-function createIntervalLabel(start, end, sign, type) {
-    const left = formatNumber(start);
-    const right = formatNumber(end);
+function chooseSamplePoint(left, right) {
+    if (!Number.isFinite(left)) {
+        return Number.isFinite(right) ? right - 1 : 0;
+    }
+
+    if (!Number.isFinite(right)) {
+        return left + 1;
+    }
+
+    return (left + right) / 2;
+}
+
+function createGlobalIntervalText(left, right, sign, type) {
+    const leftText = formatBoundary(left);
+    const rightText = formatBoundary(right);
 
     if (type === "monotonicity") {
         return sign > 0
-            ? "steigend auf [" + left + ", " + right + "]"
-            : "fallend auf [" + left + ", " + right + "]";
+            ? "steigend auf (" + leftText + ", " + rightText + ")"
+            : "fallend auf (" + leftText + ", " + rightText + ")";
     }
 
     return sign > 0
-        ? "linksgekruemmt auf [" + left + ", " + right + "]"
-        : "rechtsgekruemmt auf [" + left + ", " + right + "]";
+        ? "linksgekruemmt auf (" + leftText + ", " + rightText + ")"
+        : "rechtsgekruemmt auf (" + leftText + ", " + rightText + ")";
+}
+
+function formatBoundary(value) {
+    if (value === Infinity) {
+        return "+inf";
+    }
+
+    if (value === -Infinity) {
+        return "-inf";
+    }
+
+    return formatNumber(value);
 }
 
 function detectSymmetry(fn) {
@@ -347,7 +481,85 @@ function detectSymmetry(fn) {
     return "keine einfache Symmetrie erkannt";
 }
 
+function describePeriodicAnalysis(input) {
+    const model = parsePeriodicTrigModel(input);
+
+    if (!model) {
+        return null;
+    }
+
+    const period = Math.PI / Math.abs(model.linear.a);
+    const doublePeriod = 2 * period;
+    const amplitudeSign = Math.sign(model.amplitude) || 1;
+    const slopeSign = Math.sign(model.amplitude * model.linear.a) || 1;
+
+    if (model.trigFunction === "sin") {
+        const maxBase = solveLinear(model.linear, amplitudeSign > 0 ? Math.PI / 2 : 3 * Math.PI / 2);
+        const minBase = solveLinear(model.linear, amplitudeSign > 0 ? 3 * Math.PI / 2 : Math.PI / 2);
+        const inflectionBase = solveLinear(model.linear, 0);
+
+        return {
+            extremaGeneral: "Hochpunkte: x = " + formatNumber(maxBase) + " + k * " + formatPiMultiple(doublePeriod / Math.PI) +
+                "; Tiefpunkte: x = " + formatNumber(minBase) + " + k * " + formatPiMultiple(doublePeriod / Math.PI) + ", k in Z",
+            inflectionGeneral: "Wendepunkte: x = " + formatNumber(inflectionBase) + " + k * " + formatPiMultiple(period / Math.PI) + ", k in Z",
+            monotonicityGeneral: slopeSign > 0
+                ? "Monotonie allgemein: steigend zwischen Tiefpunkt und Hochpunkt, fallend zwischen Hochpunkt und Tiefpunkt; Wiederholung mit Periode " + formatPiMultiple(doublePeriod / Math.PI)
+                : "Monotonie allgemein: fallend zwischen Tiefpunkt und Hochpunkt, steigend zwischen Hochpunkt und Tiefpunkt; Wiederholung mit Periode " + formatPiMultiple(doublePeriod / Math.PI),
+            curvatureGeneral: amplitudeSign > 0
+                ? "Kruemmung allgemein: linksgekruemmt fuer sin(ax+b) > 0, rechtsgekruemmt fuer sin(ax+b) < 0; Wechsel bei x = " + formatNumber(inflectionBase) + " + k * " + formatPiMultiple(period / Math.PI) + ", k in Z"
+                : "Kruemmung allgemein: linksgekruemmt fuer sin(ax+b) < 0, rechtsgekruemmt fuer sin(ax+b) > 0; Wechsel bei x = " + formatNumber(inflectionBase) + " + k * " + formatPiMultiple(period / Math.PI) + ", k in Z"
+        };
+    }
+
+    if (model.trigFunction === "cos") {
+        const maxBase = solveLinear(model.linear, amplitudeSign > 0 ? 0 : Math.PI);
+        const minBase = solveLinear(model.linear, amplitudeSign > 0 ? Math.PI : 0);
+        const inflectionBase = solveLinear(model.linear, Math.PI / 2);
+
+        return {
+            extremaGeneral: "Hochpunkte: x = " + formatNumber(maxBase) + " + k * " + formatPiMultiple(doublePeriod / Math.PI) +
+                "; Tiefpunkte: x = " + formatNumber(minBase) + " + k * " + formatPiMultiple(doublePeriod / Math.PI) + ", k in Z",
+            inflectionGeneral: "Wendepunkte: x = " + formatNumber(inflectionBase) + " + k * " + formatPiMultiple(period / Math.PI) + ", k in Z",
+            monotonicityGeneral: "Monotonie allgemein wiederholt sich mit Periode " + formatPiMultiple(doublePeriod / Math.PI),
+            curvatureGeneral: "Kruemmung allgemein wechselt bei x = " + formatNumber(inflectionBase) + " + k * " + formatPiMultiple(period / Math.PI) + ", k in Z"
+        };
+    }
+
+    if (model.trigFunction === "tan") {
+        const rootBase = solveLinear(model.linear, 0);
+
+        return {
+            extremaGeneral: "Keine periodischen Extremstellen",
+            inflectionGeneral: "Wendepunkte: x = " + formatNumber(rootBase) + " + k * " + formatPiMultiple(period / Math.PI) + ", k in Z",
+            monotonicityGeneral: slopeSign > 0
+                ? "Monotonie allgemein: streng steigend auf jedem Definitionsintervall; Wiederholung mit Periode " + formatPiMultiple(period / Math.PI)
+                : "Monotonie allgemein: streng fallend auf jedem Definitionsintervall; Wiederholung mit Periode " + formatPiMultiple(period / Math.PI),
+            curvatureGeneral: "Kruemmung allgemein wechselt bei x = " + formatNumber(rootBase) + " + k * " + formatPiMultiple(period / Math.PI) + ", k in Z"
+        };
+    }
+
+    return null;
+}
+
 function describePeriodicRoots(input) {
+    const model = parsePeriodicTrigModel(input);
+
+    if (!model || !almostEqual(model.shift, 0)) {
+        return null;
+    }
+
+    if (model.trigFunction === "sin" || model.trigFunction === "tan") {
+        return "Allgemein: x = " + formatLinearRootFamily(0, Math.PI, model.linear) + ", k in Z";
+    }
+
+    if (model.trigFunction === "cos") {
+        return "Allgemein: x = " + formatLinearRootFamily(Math.PI / 2, Math.PI, model.linear) + ", k in Z";
+    }
+
+    return null;
+}
+
+function parsePeriodicTrigModel(input) {
     const normalizedInput = normalizeExpression(input);
 
     if (!normalizedInput) {
@@ -358,28 +570,39 @@ function describePeriodicRoots(input) {
         ? normalizedInput.slice(0, -2)
         : normalizedInput;
 
-    const trigMatch = expression.match(/^[+-]?(?:\d*\.?\d+\*?)?(sin|cos|tan)\((.+)\)$/);
+    const match = expression.match(/^([+-]?(?:\d*\.?\d+)?)?\*?(sin|cos|tan)\((.+)\)([+-]\d*\.?\d+)?$/);
 
-    if (!trigMatch) {
+    if (!match) {
         return null;
     }
 
-    const trigFunction = trigMatch[1];
-    const linearPart = parseLinearExpression(trigMatch[2]);
+    const amplitude = parseLeadingCoefficient(match[1]);
+    const trigFunction = match[2];
+    const linear = parseLinearExpression(match[3]);
+    const shift = match[4] ? Number(match[4]) : 0;
 
-    if (!linearPart || linearPart.a === 0) {
+    if (!linear || Number.isNaN(amplitude) || Number.isNaN(shift)) {
         return null;
     }
 
-    if (trigFunction === "sin" || trigFunction === "tan") {
-        return "Allgemein: x = " + formatLinearRootFamily(0, Math.PI, linearPart) + ", k in Z";
+    return {
+        amplitude: amplitude,
+        trigFunction: trigFunction,
+        linear: linear,
+        shift: shift
+    };
+}
+
+function parseLeadingCoefficient(value) {
+    if (value === undefined || value === "" || value === "+") {
+        return 1;
     }
 
-    if (trigFunction === "cos") {
-        return "Allgemein: x = " + formatLinearRootFamily(Math.PI / 2, Math.PI, linearPart) + ", k in Z";
+    if (value === "-") {
+        return -1;
     }
 
-    return null;
+    return Number(value);
 }
 
 function parseLinearExpression(expression) {
@@ -426,6 +649,10 @@ function formatLinearRootFamily(offset, period, linearPart) {
     return formatNumber(base) + " + k * " + formatPiMultiple(step / Math.PI);
 }
 
+function solveLinear(linearPart, target) {
+    return (target - linearPart.b) / linearPart.a;
+}
+
 function formatPiMultiple(factor) {
     if (almostEqual(factor, 1)) {
         return "pi";
@@ -463,3 +690,4 @@ window.createFunction = createFunction;
 window.describePeriodicRoots = describePeriodicRoots;
 window.analyzeFunction = analyzeFunction;
 window.formatNumber = formatNumber;
+window.usePrettyGerman = true;

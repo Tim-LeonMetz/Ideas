@@ -3,364 +3,97 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Funktionsrechner</title>
-    <style>
-        :root {
-            --bg: linear-gradient(135deg, #f6efe7, #dce8f2);
-            --card: rgba(255, 255, 255, 0.88);
-            --text: #1f2933;
-            --accent: #d97706;
-            --accent-dark: #9a3412;
-            --border: rgba(31, 41, 51, 0.12);
-        }
-
-        * {
-            box-sizing: border-box;
-        }
-
-        body {
-            margin: 0;
-            min-height: 100vh;
-            display: grid;
-            place-items: center;
-            padding: 24px;
-            font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
-            background: var(--bg);
-            color: var(--text);
-        }
-
-        .card {
-            width: min(100%, 560px);
-            background: var(--card);
-            backdrop-filter: blur(10px);
-            border: 1px solid var(--border);
-            border-radius: 24px;
-            padding: 32px;
-            box-shadow: 0 18px 45px rgba(31, 41, 51, 0.15);
-        }
-
-        h1 {
-            margin-top: 0;
-            margin-bottom: 12px;
-            font-size: clamp(2rem, 4vw, 2.6rem);
-        }
-
-        p {
-            margin-top: 0;
-            margin-bottom: 24px;
-            line-height: 1.5;
-        }
-
-        form {
-            display: grid;
-            gap: 16px;
-        }
-
-        label {
-            display: grid;
-            gap: 6px;
-            font-weight: 600;
-        }
-
-        input {
-            width: 100%;
-            padding: 12px 14px;
-            border: 1px solid var(--border);
-            border-radius: 14px;
-            font-size: 1rem;
-        }
-
-        button {
-            border: 0;
-            border-radius: 14px;
-            padding: 14px 18px;
-            background: linear-gradient(135deg, var(--accent), var(--accent-dark));
-            color: white;
-            font-size: 1rem;
-            font-weight: 700;
-            cursor: pointer;
-        }
-
-        .result {
-            margin-top: 24px;
-            padding: 18px;
-            border-radius: 18px;
-            background: rgba(255, 255, 255, 0.72);
-            border: 1px solid var(--border);
-        }
-
-        .result h2 {
-            margin: 0 0 10px;
-            font-size: 1.15rem;
-        }
-
-        .result p {
-            margin: 0;
-        }
-
-        .analysis {
-            margin-top: 24px;
-            padding: 18px;
-            border-radius: 18px;
-            background: rgba(255, 255, 255, 0.72);
-            border: 1px solid var(--border);
-        }
-
-        .analysis h2 {
-            margin: 0 0 14px;
-            font-size: 1.15rem;
-        }
-
-        .analysis ul {
-            margin: 0;
-            padding-left: 20px;
-        }
-
-        .analysis li + li {
-            margin-top: 8px;
-        }
-
-        .graph {
-            margin-top: 24px;
-            padding: 18px;
-            border-radius: 18px;
-            background: rgba(255, 255, 255, 0.72);
-            border: 1px solid var(--border);
-        }
-
-        .graph p {
-            margin-bottom: 12px;
-        }
-
-        canvas {
-            width: 100%;
-            height: auto;
-            display: block;
-            border-radius: 14px;
-            background: linear-gradient(180deg, rgba(255, 255, 255, 0.95), rgba(237, 242, 247, 0.9));
-        }
-    </style>
+    <title>Mathe Werkzeugkasten</title>
+    <link rel="stylesheet" href="./styles.css">
 </head>
 <body>
 <main class="card">
-    <h1>Nullstellenrechner</h1>
-    <p>Gib eine Funktion in <strong>x</strong> ein, zum Beispiel <strong>x^3-2*x-5</strong>, <strong>sin(x)</strong> oder <strong>x^4-16</strong>.</p>
+    <div class="app-shell">
+        <aside class="sidebar">
+            <div class="brand">
+                <h1>Werkzeuge</h1>
+                <p>Oben kannst du zwischen Bereichen wechseln. Neue Menüpunkte lassen sich später leicht ergänzen.</p>
+            </div>
 
-    <form id="zero-form">
-        <label for="function-input">
-            Funktion
-            <input id="function-input" name="function" type="text" placeholder="z. B. x^3-2*x-5 oder sin(x)" required>
-        </label>
+            <section class="menu-group">
+                <h2 class="menu-title">Hauptmenü</h2>
+                <div class="menu-list">
+                    <button class="menu-button is-active" type="button" data-main-target="math">Mathe</button>
+                </div>
+            </section>
 
-        <button type="submit">Nullstellen berechnen</button>
-    </form>
+            <section class="menu-group submenu" id="submenu-math">
+                <h2 class="menu-title">Unterpunkte</h2>
+                <div class="menu-list">
+                    <button class="menu-button is-active" type="button" data-screen-target="screen-kurvendiskussion">Kurvendiskussion</button>
+                    <button class="menu-button" type="button" data-screen-target="screen-placeholder">Weiterer Platzhalter</button>
+                </div>
+            </section>
+        </aside>
 
-    <section class="result" id="result">
-        <h2>Ergebnis</h2>
-        <p>Bereit zur Berechnung. Gesucht wird im Bereich von -100 bis 100.</p>
-    </section>
+        <section class="content">
+            <div class="screen is-active" id="screen-kurvendiskussion" data-main="math">
+                <section class="hero">
+                    <h2>Kurvendiskussion</h2>
+                    <p>Gib eine Funktion in <strong>x</strong> ein, zum Beispiel <strong>x^3-2*x-5</strong>, <strong>sin(x)</strong> oder <strong>x^4-16</strong>.</p>
+                </section>
 
-    <section class="analysis" id="analysis">
-        <h2>Kurvendiskussion</h2>
-        <p>Nach der Berechnung erscheinen hier weitere Eigenschaften der Funktion.</p>
-    </section>
+                <form id="zero-form">
+                    <label for="function-input">
+                        Funktion
+                        <input id="function-input" name="function" type="text" placeholder="z. B. x^3-2*x-5 oder sin(x)" required>
+                    </label>
 
-    <section class="graph">
-        <h2>Funktionsgraph</h2>
-        <p>Ansicht im Bereich x von -10 bis 10 und y von -10 bis 10.</p>
-        <canvas id="graph-canvas" width="900" height="420"></canvas>
-    </section>
+                    <button type="submit">Berechnen</button>
+                </form>
+
+                <section class="result" id="result">
+                    <h2>Ergebnis</h2>
+                    <p>Bereit zur Berechnung. Die Suche arbeitet adaptiv mit dem Sekanten-Verfahren.</p>
+                </section>
+
+                <section class="analysis" id="analysis">
+                    <h2>Kurvendiskussion</h2>
+                    <p>Nach der Berechnung erscheinen hier weitere Eigenschaften der Funktion.</p>
+                </section>
+
+                <section class="graph">
+                    <h2>Funktionsgraph</h2>
+                    <p>Den sichtbaren Bereich kannst du unten selbst anpassen.</p>
+                    <div class="graph-controls">
+                        <label for="min-x">
+                            x min
+                            <input id="min-x" type="number" step="any" value="-10">
+                        </label>
+                        <label for="max-x">
+                            x max
+                            <input id="max-x" type="number" step="any" value="10">
+                        </label>
+                        <label for="min-y">
+                            y min
+                            <input id="min-y" type="number" step="any" value="-10">
+                        </label>
+                        <label for="max-y">
+                            y max
+                            <input id="max-y" type="number" step="any" value="10">
+                        </label>
+                    </div>
+                    <canvas id="graph-canvas" width="900" height="420"></canvas>
+                </section>
+            </div>
+
+            <div class="screen" id="screen-placeholder" data-main="math">
+                <section class="placeholder">
+                    <h2>Weiterer Platzhalter</h2>
+                    <p>Hier kannst du später einen weiteren Mathe-Unterpunkt einfügen.</p>
+                    <p>Du musst dafür nur einen neuen Menübutton mit `data-screen-target` und einen neuen Bereich mit passender `id` anlegen.</p>
+                </section>
+            </div>
+        </section>
+    </div>
 </main>
 
 <script src="../Mathe/Kurvendiskussion.js"></script>
-<script>
-    const form = document.getElementById("zero-form");
-    const resultBox = document.getElementById("result");
-    const analysisBox = document.getElementById("analysis");
-    const canvas = document.getElementById("graph-canvas");
-    const context = canvas.getContext("2d");
-
-    const graphBounds = {
-        minX: -10,
-        maxX: 10,
-        minY: -10,
-        maxY: 10
-    };
-
-    function renderResult(text) {
-        resultBox.innerHTML = "<h2>Ergebnis</h2><p>" + text + "</p>";
-    }
-
-    function renderAnalysis(analysis) {
-        if (!analysis) {
-            analysisBox.innerHTML = "<h2>Kurvendiskussion</h2><p>Keine Analyse verfuegbar.</p>";
-            return;
-        }
-
-        const items = [];
-
-        items.push("<li>Symmetrie: " + analysis.symmetry + "</li>");
-
-        if (analysis.yIntercept === null) {
-            items.push("<li>y-Achsenabschnitt: nicht definiert</li>");
-        } else {
-            items.push("<li>y-Achsenabschnitt: (0 | " + window.formatNumber(analysis.yIntercept) + ")</li>");
-        }
-
-        if (analysis.periodicRoots) {
-            items.push("<li>Nullstellen allgemein: " + analysis.periodicRoots + "</li>");
-        } else if (analysis.roots && analysis.roots.zeros.length > 0) {
-            items.push("<li>Nullstellen: " + analysis.roots.zeros.map(function (zero) {
-                return window.formatNumber(zero);
-            }).join(", ") + "</li>");
-        } else {
-            items.push("<li>Nullstellen: keine im Suchbereich gefunden</li>");
-        }
-
-        if (analysis.extrema.length > 0) {
-            items.push("<li>Extremstellen: " + analysis.extrema.map(function (point) {
-                return point.type + " (" + window.formatNumber(point.x) + " | " + window.formatNumber(point.y) + ")";
-            }).join(", ") + "</li>");
-        } else {
-            items.push("<li>Extremstellen: keine erkannt</li>");
-        }
-
-        if (analysis.inflectionPoints.length > 0) {
-            items.push("<li>Wendepunkte: " + analysis.inflectionPoints.map(function (point) {
-                return "(" + window.formatNumber(point.x) + " | " + window.formatNumber(point.y) + ")";
-            }).join(", ") + "</li>");
-        } else {
-            items.push("<li>Wendepunkte: keine erkannt</li>");
-        }
-
-        items.push("<li>Monotonie im sichtbaren Bereich: " + analysis.monotonicity.join(", ") + "</li>");
-        items.push("<li>Kruemmung im sichtbaren Bereich: " + analysis.curvature.join(", ") + "</li>");
-
-        analysisBox.innerHTML = "<h2>Kurvendiskussion</h2><ul>" + items.join("") + "</ul>";
-    }
-
-    function mapX(x) {
-        return ((x - graphBounds.minX) / (graphBounds.maxX - graphBounds.minX)) * canvas.width;
-    }
-
-    function mapY(y) {
-        return canvas.height - ((y - graphBounds.minY) / (graphBounds.maxY - graphBounds.minY)) * canvas.height;
-    }
-
-    function drawGraph(fn, zeros) {
-        context.clearRect(0, 0, canvas.width, canvas.height);
-
-        context.strokeStyle = "#cbd5e1";
-        context.lineWidth = 1;
-
-        for (let x = Math.ceil(graphBounds.minX); x <= graphBounds.maxX; x += 1) {
-            const pixelX = mapX(x);
-            context.beginPath();
-            context.moveTo(pixelX, 0);
-            context.lineTo(pixelX, canvas.height);
-            context.stroke();
-        }
-
-        for (let y = Math.ceil(graphBounds.minY); y <= graphBounds.maxY; y += 1) {
-            const pixelY = mapY(y);
-            context.beginPath();
-            context.moveTo(0, pixelY);
-            context.lineTo(canvas.width, pixelY);
-            context.stroke();
-        }
-
-        context.strokeStyle = "#475569";
-        context.lineWidth = 2;
-
-        context.beginPath();
-        context.moveTo(mapX(0), 0);
-        context.lineTo(mapX(0), canvas.height);
-        context.stroke();
-
-        context.beginPath();
-        context.moveTo(0, mapY(0));
-        context.lineTo(canvas.width, mapY(0));
-        context.stroke();
-
-        context.strokeStyle = "#d97706";
-        context.lineWidth = 3;
-        context.beginPath();
-
-        let started = false;
-
-        for (let pixelX = 0; pixelX <= canvas.width; pixelX += 1) {
-            const x = graphBounds.minX + (pixelX / canvas.width) * (graphBounds.maxX - graphBounds.minX);
-            const y = fn(x);
-
-            if (!Number.isFinite(y) || y < graphBounds.minY - 50 || y > graphBounds.maxY + 50) {
-                started = false;
-                continue;
-            }
-
-            const pixelY = mapY(y);
-
-            if (!started) {
-                context.moveTo(pixelX, pixelY);
-                started = true;
-            } else {
-                context.lineTo(pixelX, pixelY);
-            }
-        }
-
-        context.stroke();
-
-        context.fillStyle = "#9a3412";
-
-        zeros.forEach(function (zero) {
-            if (zero < graphBounds.minX || zero > graphBounds.maxX) {
-                return;
-            }
-
-            context.beginPath();
-            context.arc(mapX(zero), mapY(0), 5, 0, Math.PI * 2);
-            context.fill();
-        });
-    }
-
-    form.addEventListener("submit", function (event) {
-        event.preventDefault();
-
-        const functionInput = document.getElementById("function-input").value;
-        const result = window.findRoots(functionInput);
-        const fn = window.createFunction(functionInput);
-        const periodicDescription = window.describePeriodicRoots(functionInput);
-        const analysis = window.analyzeFunction(functionInput);
-
-        if (!result || !fn || !analysis) {
-            renderResult("Bitte gib eine gueltige Funktion ein, zum Beispiel x^3-2*x-5, x^4-16 oder sin(x).");
-            renderAnalysis(null);
-            return;
-        }
-
-        drawGraph(fn, result.zeros);
-        renderAnalysis(analysis);
-
-        if (periodicDescription) {
-            renderResult(periodicDescription);
-            return;
-        }
-
-        if (result.zeros.length === 0) {
-            renderResult(result.message);
-            return;
-        }
-
-        const zeros = result.zeros.map(function (zero) {
-            return Number(zero.toFixed(4));
-        });
-
-        renderResult(result.message + ": " + zeros.join(" und "));
-    });
-
-    drawGraph(function (x) {
-        return x;
-    }, [0]);
-    renderAnalysis(null);
-</script>
+<script src="./app.js"></script>
 </body>
 </html>
