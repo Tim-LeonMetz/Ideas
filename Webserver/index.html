@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Mathe Werkzeugkasten</title>
-    <link rel="stylesheet" href="./styles.css?v=11">
+    <link rel="stylesheet" href="./styles.css?v=16">
 </head>
 <body>
 <main class="card">
@@ -19,14 +19,24 @@
                 <h2 class="menu-title">Hauptmenü</h2>
                 <div class="menu-list">
                     <button class="menu-button is-active" type="button" data-main-target="math">Mathe</button>
+                    <button class="menu-button" type="button" data-main-target="informatik">Informatik</button>
                 </div>
             </section>
 
-            <section class="menu-group submenu" id="submenu-math">
+            <section class="menu-group submenu is-active" id="submenu-math" data-submenu="math">
                 <h2 class="menu-title">Unterpunkte</h2>
                 <div class="menu-list">
                     <button class="menu-button is-active" type="button" data-screen-target="screen-kurvendiskussion">Kurvendiskussion</button>
+                    <button class="menu-button" type="button" data-screen-target="screen-funktionsplotter">Funktionsplotter</button>
                     <button class="menu-button" type="button" data-screen-target="screen-placeholder">Weiterer Platzhalter</button>
+                </div>
+            </section>
+
+            <section class="menu-group submenu" id="submenu-informatik" data-submenu="informatik">
+                <h2 class="menu-title">Unterpunkte</h2>
+                <div class="menu-list">
+                    <button class="menu-button" type="button" data-screen-target="screen-algorithmen">Algorithmen</button>
+                    <button class="menu-button" type="button" data-screen-target="screen-informatik-placeholder">Weiterer Platzhalter</button>
                 </div>
             </section>
         </aside>
@@ -49,7 +59,7 @@
 
                 <section class="result" id="result">
                     <h2>Ergebnis</h2>
-                    <p>Bereit zur Berechnung. Die Suche arbeitet adaptiv mit dem Sekanten-Verfahren.</p>
+                    <p>Bereit zur Berechnung.</p>
                 </section>
 
                 <section class="analysis" id="analysis">
@@ -82,6 +92,14 @@
                 </section>
             </div>
 
+            <div class="screen" id="screen-funktionsplotter" data-main="math">
+                <section class="placeholder">
+                    <h2>Funktionsplotter</h2>
+                    <p>Das ist ein weiterer Beispiel-Unterpunkt unter Mathe.</p>
+                    <p>Hier könntest du später zum Beispiel einen eigenen Plotter, einen Ableitungsrechner oder ein anderes Werkzeug einbauen.</p>
+                </section>
+            </div>
+
             <div class="screen" id="screen-placeholder" data-main="math">
                 <section class="placeholder">
                     <h2>Weiterer Platzhalter</h2>
@@ -89,11 +107,26 @@
                     <p>Du musst dafür nur einen neuen Menübutton mit `data-screen-target` und einen neuen Bereich mit passender `id` anlegen.</p>
                 </section>
             </div>
+
+            <div class="screen" id="screen-algorithmen" data-main="informatik">
+                <section class="placeholder">
+                    <h2>Algorithmen</h2>
+                    <p>Das ist ein Beispiel für einen zweiten Punkt im Hauptmenü.</p>
+                    <p>Hier könntest du später zum Beispiel Sortierverfahren, Suchalgorithmen oder andere Informatik-Werkzeuge einbauen.</p>
+                </section>
+            </div>
+
+            <div class="screen" id="screen-informatik-placeholder" data-main="informatik">
+                <section class="placeholder">
+                    <h2>Weiterer Platzhalter</h2>
+                    <p>Hier kannst du später einen weiteren Informatik-Unterpunkt einfügen.</p>
+                    <p>Du musst dafür nur einen neuen Menübutton mit `data-screen-target` und einen neuen Bereich mit passender `id` anlegen.</p>
+                </section>
+            </div>
         </section>
     </div>
 </main>
 
-<script src="../Mathe/Kurvendiskussion.js?v=11"></script>
-<script src="./app.js?v=11"></script>
+<script src="./app.js?v=16"></script>
 </body>
 </html>

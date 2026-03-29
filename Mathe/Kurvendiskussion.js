@@ -2,8 +2,12 @@ function normalizeExpression(input) {
     return input
         .toLowerCase()
         .replace(/\s+/g, "")
+        .replace(/\u00e4/g, "a")
+        .replace(/\u00f6/g, "o")
         .replace(/\u00fc/g, "u")
         .replace(/ü/g, "u")
+        .replace(/Ã¤/g, "a")
+        .replace(/Ã¶/g, "o")
         .replace(/Ã¼/g, "u")
         .replace(/\u2212/g, "-")
         .replace(/\u00b2/g, "^2")
@@ -354,6 +358,7 @@ function analyzeFunction(input) {
     const inflectionCandidates = findInterestingPoints(secondDerivative, -20, 20, 0.25);
     const periodicAnalysis = describePeriodicAnalysis(input);
     const normalizedInput = normalizeExpression(input);
+    const constantLike = isAlmostConstantFunction(fn);
     const affineLike = isAlmostZeroFunction(secondDerivative);
 
     return {
@@ -364,12 +369,38 @@ function analyzeFunction(input) {
         yIntercept: safeEvaluate(fn, 0),
         symmetry: detectSymmetry(fn),
         endBehavior: describeEndBehavior(fn),
-        asymptotes: detectAsymptotes(normalizedInput, fn),
-        extrema: classifyExtrema(fn, firstDerivative, secondDerivative, criticalPoints),
+        asymptotes: detectAsymptotes(normalizedInput, fn, constantLike),
+        extrema: constantLike ? [] : classifyExtrema(fn, firstDerivative, secondDerivative, criticalPoints),
         inflectionPoints: affineLike ? [] : classifyInflectionPoints(fn, secondDerivative, inflectionCandidates),
-        monotonicity: buildGlobalBehaviorDescription(firstDerivative, criticalPoints, "monotonicity"),
+        monotonicity: constantLike
+            ? ["konstant auf der Definitionsmenge"]
+            : buildGlobalBehaviorDescription(firstDerivative, criticalPoints, "monotonicity"),
         curvature: affineLike ? ["nicht gekruemmt"] : buildGlobalBehaviorDescription(secondDerivative, inflectionCandidates, "curvature")
     };
+}
+
+function isAlmostConstantFunction(fn) {
+    const samplePoints = [-10, -5, -2, -1, 0, 1, 2, 5, 10];
+    let referenceValue = null;
+
+    for (const point of samplePoints) {
+        const value = safeEvaluate(fn, point);
+
+        if (value === null) {
+            continue;
+        }
+
+        if (referenceValue === null) {
+            referenceValue = value;
+            continue;
+        }
+
+        if (!almostEqual(value, referenceValue)) {
+            return false;
+        }
+    }
+
+    return referenceValue !== null;
 }
 
 function isAlmostZeroFunction(fn) {
@@ -433,8 +464,12 @@ function describeLimitValue(value) {
     return formatNumber(value);
 }
 
-function detectAsymptotes(normalizedInput, fn) {
+function detectAsymptotes(normalizedInput, fn, constantLike) {
     const hints = [];
+
+    if (constantLike) {
+        return "keine offensichtlichen Asymptoten erkannt";
+    }
 
     if (normalizedInput.includes("tan(")) {
         hints.push("vertikale Asymptoten periodisch vorhanden");

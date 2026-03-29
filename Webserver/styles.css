@@ -100,9 +100,14 @@ body {
 }
 
 .submenu {
+    display: none;
     margin-top: 12px;
     padding-top: 12px;
     border-top: 1px solid var(--border);
+}
+
+.submenu.is-active {
+    display: block;
 }
 
 .submenu button {

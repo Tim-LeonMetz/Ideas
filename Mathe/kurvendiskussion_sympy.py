@@ -1,0 +1,523 @@
+from __future__ import annotations
+
+import math
+from dataclasses import dataclass
+from typing import Any
+
+import sympy as sp
+from sympy.calculus.singularities import singularities
+from sympy.calculus.util import continuous_domain
+from sympy.parsing.sympy_parser import (
+    convert_xor,
+    implicit_multiplication_application,
+    parse_expr,
+    standard_transformations,
+)
+from sympy.sets import ImageSet
+
+
+X = sp.symbols("x", real=True)
+TRANSFORMATIONS = standard_transformations + (
+    implicit_multiplication_application,
+    convert_xor,
+)
+LOCAL_DICT = {
+    "x": X,
+    "sin": sp.sin,
+    "cos": sp.cos,
+    "tan": sp.tan,
+    "sqrt": sp.sqrt,
+    "abs": sp.Abs,
+    "log": sp.log,
+    "exp": sp.exp,
+    "pi": sp.pi,
+    "e": sp.E,
+}
+
+
+@dataclass
+class AnalysisResult:
+    result_text: str
+    analysis: dict[str, str]
+    graph: dict[str, Any]
+
+
+def normalize_expression(text: str) -> str:
+    normalized = (text or "").strip()
+    normalized = normalized.replace("f(x)=", "").replace("y=", "")
+    normalized = normalized.replace("−", "-").replace(",", ".")
+
+    if normalized.endswith("=0"):
+        normalized = normalized[:-2]
+
+    return normalized.strip()
+
+
+def parse_user_expression(text: str) -> sp.Expr:
+    normalized = normalize_expression(text)
+
+    if not normalized:
+        raise ValueError("Bitte gib eine Funktion ein.")
+
+    try:
+        expression = parse_expr(
+            normalized,
+            local_dict=LOCAL_DICT,
+            transformations=TRANSFORMATIONS,
+            evaluate=True,
+        )
+    except Exception as error:  # noqa: BLE001
+        raise ValueError("Die Funktion konnte nicht gelesen werden.") from error
+
+    if expression.free_symbols - {X}:
+        raise ValueError("Es ist nur die Variable x erlaubt.")
+
+    return sp.simplify(expression)
+
+
+def format_number(value: Any) -> str:
+    if value is None:
+        return "nicht definiert"
+
+    simplified = sp.simplify(value)
+
+    if simplified is sp.oo:
+        return "+inf"
+
+    if simplified is -sp.oo:
+        return "-inf"
+
+    if simplified.has(sp.zoo, sp.nan):
+        return "nicht definiert"
+
+    if simplified.is_real is False:
+        return "nicht reell"
+
+    if simplified.is_Number:
+        if simplified.is_Integer:
+            return str(int(simplified))
+
+        numeric = float(sp.N(simplified, 12))
+
+        if abs(numeric) < 1e-10:
+            numeric = 0.0
+
+        text = f"{numeric:.8f}".rstrip("0").rstrip(".")
+        return text or "0"
+
+    return format_expr(simplified)
+
+
+def format_expr(expr: Any) -> str:
+    text = sp.sstr(sp.simplify(expr))
+    return (
+        text.replace("**", "^")
+        .replace("oo", "inf")
+        .replace("Abs", "abs")
+        .replace("sqrt", "sqrt")
+    )
+
+
+def format_interval(interval: sp.Interval) -> str:
+    left_bracket = "[" if not interval.left_open else "("
+    right_bracket = "]" if not interval.right_open else ")"
+    return (
+        f"{left_bracket}{format_number(interval.start)}, "
+        f"{format_number(interval.end)}{right_bracket}"
+    )
+
+
+def format_set(set_obj: sp.Set) -> str:
+    if set_obj is sp.S.Reals:
+        return "alle reellen Zahlen"
+
+    if set_obj is sp.S.EmptySet:
+        return "leere Menge"
+
+    if isinstance(set_obj, sp.Interval):
+        return format_interval(set_obj)
+
+    if isinstance(set_obj, sp.Union):
+        return " U ".join(format_set(arg) for arg in set_obj.args)
+
+    if isinstance(set_obj, sp.FiniteSet):
+        values = sorted(set_obj, key=sp.default_sort_key)
+        return ", ".join(format_number(value) for value in values)
+
+    return format_expr(set_obj)
+
+
+def format_solution_set(solution_set: sp.Set) -> str:
+    if solution_set is sp.S.EmptySet:
+        return "keine"
+
+    if isinstance(solution_set, sp.FiniteSet):
+        values = sorted(solution_set, key=sp.default_sort_key)
+        return ", ".join(format_number(value) for value in values)
+
+    if isinstance(solution_set, sp.Union):
+        return "; ".join(format_solution_set(arg) for arg in solution_set.args)
+
+    if isinstance(solution_set, ImageSet):
+        try:
+            variable = solution_set.lamda.variables[0]
+            formula = solution_set.lamda.expr
+            formula_text = format_expr(formula).replace(str(variable), "k")
+            if solution_set.base_set == sp.S.Integers:
+                return f"x = {formula_text}, k in Z"
+        except Exception:  # noqa: BLE001
+            return format_expr(solution_set)
+
+    if isinstance(solution_set, sp.ConditionSet):
+        return "keine geschlossene Darstellung gefunden"
+
+    return format_expr(solution_set)
+
+
+def compute_symmetry(expr: sp.Expr) -> str:
+    if sp.simplify(expr.subs(X, -X) - expr) == 0:
+        return "achsensymmetrisch zur y-Achse"
+
+    if sp.simplify(expr.subs(X, -X) + expr) == 0:
+        return "punktsymmetrisch zum Ursprung"
+
+    return "keine einfache Symmetrie erkannt"
+
+
+def limit_text(value: Any) -> str:
+    try:
+        return format_number(sp.simplify(value))
+    except Exception:  # noqa: BLE001
+        return "nicht eindeutig bestimmbar"
+
+
+def compute_end_behavior(expr: sp.Expr) -> str:
+    left = sp.limit(expr, X, -sp.oo)
+    right = sp.limit(expr, X, sp.oo)
+    return f"x -> -inf: {limit_text(left)}; x -> +inf: {limit_text(right)}"
+
+
+def _vertical_asymptotes(expr: sp.Expr, domain: sp.Set) -> list[str]:
+    try:
+        singular_points = singularities(expr, X, domain=sp.S.Reals)
+    except Exception:  # noqa: BLE001
+        return []
+
+    if not isinstance(singular_points, sp.FiniteSet):
+        return []
+
+    found = []
+    for point in sorted(singular_points, key=sp.default_sort_key):
+        if point not in domain.closure:
+            continue
+
+        left = sp.limit(expr, X, point, dir="-")
+        right = sp.limit(expr, X, point, dir="+")
+
+        if left in (sp.oo, -sp.oo) or right in (sp.oo, -sp.oo):
+            found.append(f"x = {format_number(point)}")
+
+    return found
+
+
+def _linear_asymptote(expr: sp.Expr, direction: Any) -> str | None:
+    slope = sp.simplify(sp.limit(expr / X, X, direction))
+
+    if slope in (sp.oo, -sp.oo, sp.nan, sp.zoo):
+        return None
+
+    intercept = sp.simplify(sp.limit(expr - slope * X, X, direction))
+
+    if intercept in (sp.oo, -sp.oo, sp.nan, sp.zoo):
+        return None
+
+    if slope == 0:
+        return f"waagerechte Asymptote y = {format_number(intercept)}"
+
+    sign = "+" if sp.N(intercept) >= 0 else "-"
+    intercept_text = format_number(abs(sp.N(intercept)))
+    return f"schiefe Asymptote y = {format_number(slope)}*x {sign} {intercept_text}"
+
+
+def compute_asymptotes(expr: sp.Expr, domain: sp.Set) -> str:
+    hints: list[str] = []
+
+    for item in _vertical_asymptotes(expr, domain):
+        hints.append(f"vertikale Asymptote {item}")
+
+    for direction in (-sp.oo, sp.oo):
+        asymptote = _linear_asymptote(expr, direction)
+        if asymptote and asymptote not in hints:
+            hints.append(asymptote)
+
+    return ", ".join(hints) if hints else "keine offensichtlichen Asymptoten erkannt"
+
+
+def finite_real_points(solution_set: sp.Set) -> list[sp.Expr] | None:
+    if isinstance(solution_set, sp.FiniteSet):
+        points = [
+            sp.simplify(value)
+            for value in solution_set
+            if value.is_real is not False
+        ]
+        return sorted(points, key=sp.default_sort_key)
+
+    return None
+
+
+def classify_extrema(expr: sp.Expr, domain: sp.Set) -> tuple[str, list[sp.Expr]]:
+    first_derivative = sp.simplify(sp.diff(expr, X))
+    second_derivative = sp.simplify(sp.diff(first_derivative, X))
+
+    if first_derivative == 0:
+        return "keine erkannt", []
+
+    critical_set = sp.solveset(sp.Eq(first_derivative, 0), X, domain=domain)
+    critical_points = finite_real_points(critical_set)
+
+    if critical_points is None:
+        return f"allgemeine kritische Stellen: {format_solution_set(critical_set)}", []
+
+    if not critical_points:
+        return "keine erkannt", []
+
+    parts = []
+    for point in critical_points:
+        curvature = sp.simplify(second_derivative.subs(X, point))
+        y_value = sp.simplify(expr.subs(X, point))
+
+        if curvature.is_real and curvature > 0:
+            point_type = "Tiefpunkt"
+        elif curvature.is_real and curvature < 0:
+            point_type = "Hochpunkt"
+        else:
+            point_type = "kritischer Punkt"
+
+        parts.append(
+            f"{point_type} ({format_number(point)} | {format_number(y_value)})"
+        )
+
+    return ", ".join(parts), critical_points
+
+
+def classify_inflection_points(expr: sp.Expr, domain: sp.Set) -> tuple[str, list[sp.Expr]]:
+    second_derivative = sp.simplify(sp.diff(expr, X, 2))
+
+    if second_derivative == 0:
+        return "keine erkannt", []
+
+    inflection_set = sp.solveset(sp.Eq(second_derivative, 0), X, domain=domain)
+    inflection_points = finite_real_points(inflection_set)
+
+    if inflection_points is None:
+        return f"allgemein: {format_solution_set(inflection_set)}", []
+
+    if not inflection_points:
+        return "keine erkannt", []
+
+    confirmed_points = []
+    for point in inflection_points:
+        left = sample_expression(second_derivative, float(sp.N(point)) - 0.01)
+        right = sample_expression(second_derivative, float(sp.N(point)) + 0.01)
+
+        if left is None or right is None or left == 0 or right == 0:
+            continue
+
+        if math.copysign(1, left) != math.copysign(1, right):
+            confirmed_points.append(point)
+
+    if not confirmed_points:
+        return "keine erkannt", []
+
+    parts = [
+        f"({format_number(point)} | {format_number(sp.simplify(expr.subs(X, point)))})"
+        for point in confirmed_points
+    ]
+    return ", ".join(parts), confirmed_points
+
+
+def interval_components(domain: sp.Set) -> list[sp.Interval]:
+    if isinstance(domain, sp.Interval):
+        return [domain]
+
+    if isinstance(domain, sp.Union):
+        intervals = [arg for arg in domain.args if isinstance(arg, sp.Interval)]
+        return intervals
+
+    return [sp.Interval(-sp.oo, sp.oo)]
+
+
+def sample_expression(expr: sp.Expr, value: float) -> float | None:
+    try:
+        sampled = complex(sp.N(expr.subs(X, value), 16))
+    except Exception:  # noqa: BLE001
+        return None
+
+    if abs(sampled.imag) > 1e-8 or not math.isfinite(sampled.real):
+        return None
+
+    return float(sampled.real)
+
+
+def describe_behavior(
+    expr: sp.Expr,
+    domain: sp.Set,
+    change_points: list[sp.Expr],
+    positive_text: str,
+    negative_text: str,
+) -> str:
+    if not change_points:
+        sample = sample_expression(expr, 0.0)
+        if sample is None:
+            return "keine eindeutige globale Aussage erkannt"
+        if abs(sample) < 1e-9:
+            return "konstant bzw. ohne Vorzeichenwechsel erkannt"
+        return (
+            f"{positive_text} auf der Definitionsmenge"
+            if sample > 0
+            else f"{negative_text} auf der Definitionsmenge"
+        )
+
+    intervals_text: list[str] = []
+    for component in interval_components(domain):
+        inner_points = [
+            point
+            for point in change_points
+            if component.contains(point) is True
+            and point not in (component.start, component.end)
+        ]
+        boundaries = [component.start, *inner_points, component.end]
+
+        for left, right in zip(boundaries, boundaries[1:]):
+            sample_value = choose_sample_point(left, right)
+            sample = sample_expression(expr, sample_value)
+            if sample is None or abs(sample) < 1e-9:
+                continue
+
+            interval_text = format_interval_text(left, right)
+            state = positive_text if sample > 0 else negative_text
+            intervals_text.append(f"{state} auf {interval_text}")
+
+    return ", ".join(intervals_text) if intervals_text else "keine eindeutige globale Aussage erkannt"
+
+
+def choose_sample_point(left: Any, right: Any) -> float:
+    left_value = -10.0 if left is -sp.oo else float(sp.N(left))
+    right_value = 10.0 if right is sp.oo else float(sp.N(right))
+
+    if left is -sp.oo and right is sp.oo:
+        return 0.0
+
+    if left is -sp.oo:
+        return right_value - 1.0
+
+    if right is sp.oo:
+        return left_value + 1.0
+
+    return (left_value + right_value) / 2.0
+
+
+def format_interval_text(left: Any, right: Any) -> str:
+    left_text = "-inf" if left is -sp.oo else format_number(left)
+    right_text = "+inf" if right is sp.oo else format_number(right)
+    return f"({left_text}, {right_text})"
+
+
+def root_result_text(root_set: sp.Set) -> str:
+    if root_set is sp.S.EmptySet:
+        return "Keine Nullstellen gefunden"
+
+    finite_points = finite_real_points(root_set)
+    if finite_points is None:
+        return f"Nullstellen: {format_solution_set(root_set)}"
+
+    if len(finite_points) == 1:
+        return f"Eine Nullstelle gefunden: {format_number(finite_points[0])}"
+
+    values = ", ".join(format_number(point) for point in finite_points)
+    return f"{len(finite_points)} Nullstellen gefunden: {values}"
+
+
+def graph_points(expr: sp.Expr, min_x: float, max_x: float, samples: int = 500) -> list[Any]:
+    if min_x >= max_x:
+        raise ValueError("Der Graphbereich ist ungueltig.")
+
+    points: list[Any] = []
+    step = (max_x - min_x) / max(samples - 1, 1)
+
+    for index in range(samples):
+        x_value = min_x + index * step
+        y_value = sample_expression(expr, x_value)
+        points.append(None if y_value is None else [x_value, y_value])
+
+    return points
+
+
+def visible_finite_roots(root_set: sp.Set, min_x: float, max_x: float) -> list[float]:
+    finite_points = finite_real_points(root_set) or []
+    visible = []
+
+    for point in finite_points:
+        numeric = float(sp.N(point))
+        if min_x <= numeric <= max_x:
+            visible.append(numeric)
+
+    return visible
+
+
+def analyze_expression(expression_text: str, min_x: float, max_x: float) -> AnalysisResult:
+    expr = parse_user_expression(expression_text)
+    domain = continuous_domain(expr, X, sp.S.Reals)
+    root_set = sp.solveset(sp.Eq(expr, 0), X, domain=domain)
+    y_intercept = sp.simplify(expr.subs(X, 0)) if domain.contains(0) is True else None
+    extrema_text, critical_points = classify_extrema(expr, domain)
+    inflection_text, inflection_points = classify_inflection_points(expr, domain)
+    first_derivative = sp.simplify(sp.diff(expr, X))
+    second_derivative = sp.simplify(sp.diff(expr, X, 2))
+    monotonicity_text = (
+        "konstant auf der Definitionsmenge"
+        if first_derivative == 0
+        else describe_behavior(
+            first_derivative,
+            domain,
+            critical_points,
+            "steigend",
+            "fallend",
+        )
+    )
+    curvature_text = (
+        "nicht gekruemmt"
+        if second_derivative == 0
+        else describe_behavior(
+            second_derivative,
+            domain,
+            inflection_points,
+            "linksgekruemmt",
+            "rechtsgekruemmt",
+        )
+    )
+
+    analysis = {
+        "domain": format_set(domain),
+        "symmetry": compute_symmetry(expr),
+        "roots": format_solution_set(root_set),
+        "y_intercept": "nicht definiert"
+        if y_intercept is None
+        else f"(0 | {format_number(y_intercept)})",
+        "end_behavior": compute_end_behavior(expr),
+        "asymptotes": compute_asymptotes(expr, domain),
+        "extrema": extrema_text,
+        "monotonicity": monotonicity_text,
+        "inflection": inflection_text,
+        "curvature": curvature_text,
+        "graph": "im Bereich Funktionsgraph",
+    }
+
+    return AnalysisResult(
+        result_text=root_result_text(root_set),
+        analysis=analysis,
+        graph={
+            "points": graph_points(expr, min_x, max_x),
+            "zeros": visible_finite_roots(root_set, min_x, max_x),
+        },
+    )
