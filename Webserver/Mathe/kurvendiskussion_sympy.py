@@ -223,12 +223,12 @@ def _vertical_asymptote_points(expr: sp.Expr, domain: sp.Set) -> list[sp.Expr]:
 def _linear_asymptote_data(expr: sp.Expr, direction: Any) -> dict[str, Any] | None:
     slope = sp.simplify(sp.limit(expr / X, X, direction))
 
-    if slope in (sp.oo, -sp.oo, sp.nan, sp.zoo):
+    if slope in (sp.oo, -sp.oo, sp.nan, sp.zoo) or not slope.is_real:
         return None
 
     intercept = sp.simplify(sp.limit(expr - slope * X, X, direction))
 
-    if intercept in (sp.oo, -sp.oo, sp.nan, sp.zoo):
+    if intercept in (sp.oo, -sp.oo, sp.nan, sp.zoo) or not intercept.is_real or not intercept.is_number:
         return None
 
     if slope == 0:
