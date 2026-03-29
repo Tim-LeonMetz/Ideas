@@ -270,28 +270,16 @@ function drawGraph(points, zeros, asymptotes) {
     context.lineWidth = 3;
 
     let started = false;
-    let previousPoint = null;
     context.beginPath();
 
     points.forEach(function (point) {
         if (!point) {
             started = false;
-            previousPoint = null;
             return;
         }
 
         const x = point[0];
         const y = point[1];
-
-        if (y < graphBounds.minY - 1 || y > graphBounds.maxY + 1) {
-            started = false;
-            previousPoint = null;
-            return;
-        }
-
-        if (previousPoint && Math.abs(y - previousPoint[1]) > (graphBounds.maxY - graphBounds.minY) * 0.35) {
-            started = false;
-        }
 
         const pixelX = mapX(x);
         const pixelY = mapY(y);
@@ -302,8 +290,6 @@ function drawGraph(points, zeros, asymptotes) {
         } else {
             context.lineTo(pixelX, pixelY);
         }
-
-        previousPoint = point;
     });
 
     context.stroke();
