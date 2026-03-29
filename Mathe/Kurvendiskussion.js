@@ -3,8 +3,11 @@ function normalizeExpression(input) {
         .toLowerCase()
         .replace(/\s+/g, "")
         .replace(/ü/g, "u")
+        .replace(/Ã¼/g, "u")
         .replace(/\u2212/g, "-")
         .replace(/\u00b2/g, "^2")
+        .replace(/×/g, "*")
+        .replace(/·/g, "*")
         .replace(/,/g, ".");
 }
 
@@ -39,8 +42,9 @@ function prepareExpression(input) {
 
     const withImplicitMultiplication = withConstants
         .replace(/(\d)(x|Math\.)/g, "$1*$2")
+        .replace(/(\d)\(/g, "$1*(")
         .replace(/(\))(x|\d|Math\.)/g, "$1*$2")
-        .replace(/(x)(\d|Math\.)/g, "$1*$2");
+        .replace(/(x)(\d|Math\.|\()/g, "$1*$2");
 
     if (!/^[0-9x+\-*/().A-Za-z_]*$/.test(withImplicitMultiplication)) {
         return null;
@@ -58,9 +62,8 @@ function createFunction(input) {
 
     try {
         const fn = new Function("x", "return " + expression + ";");
-        const testValue = fn(1);
 
-        if (!Number.isFinite(testValue)) {
+        if (!hasFiniteSampleValue(fn)) {
             return null;
         }
 
@@ -68,6 +71,20 @@ function createFunction(input) {
     } catch (error) {
         return null;
     }
+}
+
+function hasFiniteSampleValue(fn) {
+    const samplePoints = [0, 1, -1, 2, -2, 0.5, -0.5];
+
+    for (const point of samplePoints) {
+        const value = safeEvaluate(fn, point);
+
+        if (value !== null) {
+            return true;
+        }
+    }
+
+    return false;
 }
 
 function safeEvaluate(fn, x) {
@@ -166,6 +183,15 @@ function findPointsWithSecant(fn, options) {
 
     const points = [];
     const pairs = generateAdaptivePairs();
+    const samples = generateAdaptiveSamples();
+
+    samples.forEach(function (sample) {
+        const value = safeEvaluate(fn, sample);
+
+        if (value !== null && Math.abs(value) < 1e-4 && accept(sample)) {
+            addUniquePoint(points, sample, uniquenessTolerance);
+        }
+    });
 
     pairs.forEach(function (pair) {
         const root = secantMethod(fn, pair[0], pair[1], tolerance, maxIterations);
@@ -186,6 +212,24 @@ function findPointsWithSecant(fn, options) {
     return points.sort(function (a, b) {
         return a - b;
     });
+}
+
+function generateAdaptiveSamples() {
+    const samples = [0, 1, -1, 2, -2, 0.5, -0.5];
+    let radius = 1;
+
+    for (let shell = 0; shell < 10; shell += 1) {
+        const nextRadius = radius * 2;
+        const step = Math.max(0.25, radius / 4);
+
+        for (let x = -nextRadius; x <= nextRadius; x += step) {
+            samples.push(Number(x.toFixed(6)));
+        }
+
+        radius = nextRadius;
+    }
+
+    return samples;
 }
 
 function addUniquePoint(points, candidate, tolerance) {

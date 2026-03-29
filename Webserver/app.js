@@ -24,20 +24,19 @@ let currentZeros = [0];
 
 function prettifyGerman(text) {
     return text
-        .replace(/Kruemmung/g, "Krümmung")
-        .replace(/gekruemmt/g, "gekrümmt")
-        .replace(/fuer/g, "für")
-        .replace(/gueltige/g, "gültige")
-        .replace(/gueltigen/g, "gültigen")
-        .replace(/waehle/g, "wähle")
-        .replace(/verfuegbar/g, "verfügbar")
-        .replace(/dafuer/g, "dafür")
-        .replace(/Menue/g, "Menü")
-        .replace(/einfuegen/g, "einfügen")
-        .replace(/groesser/g, "größer")
-        .replace(/naeherungsweise/g, "näherungsweise")
-        .replace(/moegliche/g, "mögliche")
-        .replace(/offensichtlichen/g, "offensichtlichen");
+        .replace(/Kruemmung/g, "Kr\u00fcmmung")
+        .replace(/gekruemmt/g, "gekr\u00fcmmt")
+        .replace(/fuer/g, "f\u00fcr")
+        .replace(/gueltige/g, "g\u00fcltige")
+        .replace(/gueltigen/g, "g\u00fcltigen")
+        .replace(/waehle/g, "w\u00e4hle")
+        .replace(/verfuegbar/g, "verf\u00fcgbar")
+        .replace(/dafuer/g, "daf\u00fcr")
+        .replace(/Menue/g, "Men\u00fc")
+        .replace(/einfuegen/g, "einf\u00fcgen")
+        .replace(/groesser/g, "gr\u00f6\u00dfer")
+        .replace(/naeherungsweise/g, "n\u00e4herungsweise")
+        .replace(/moegliche/g, "m\u00f6gliche");
 }
 
 function setActiveMainMenu(mainTarget) {
@@ -75,7 +74,7 @@ function renderResult(text) {
 
 function renderAnalysis(analysis) {
     if (!analysis) {
-        analysisBox.innerHTML = "<h2>Kurvendiskussion</h2><p>Keine Analyse verfügbar.</p>";
+        analysisBox.innerHTML = "<h2>Kurvendiskussion</h2><p>Keine Analyse verf\u00fcgbar.</p>";
         return;
     }
 
@@ -118,14 +117,14 @@ function renderAnalysis(analysis) {
     lines.push("<div class=\"analysis-line\"><strong>Symmetrieverhalten:</strong> " + analysis.symmetry + "</div>");
     lines.push("<div class=\"analysis-line\"><strong>Nullstellen:</strong> " + zerosText + "</div>");
     lines.push("<div class=\"analysis-line\"><strong>Schnittpunkt mit der y-Achse:</strong> " + (analysis.yIntercept === null ? "nicht definiert" : "(0 | " + window.formatNumber(analysis.yIntercept) + ")") + "</div>");
-    lines.push("<div class=\"analysis-line\"><strong>Grenzverhalten an den Rändern der Definitionsmenge:</strong> " + analysis.endBehavior + "</div>");
+    lines.push("<div class=\"analysis-line\"><strong>Grenzverhalten an den R\u00e4ndern der Definitionsmenge:</strong> " + analysis.endBehavior + "</div>");
     lines.push("<div class=\"analysis-line\"><strong>Asymptoten:</strong> " + analysis.asymptotes + "</div>");
     lines.push("<div class=\"analysis-line\"><strong>Extrempunkte und Monotonieverhalten:</strong></div>");
     lines.push("<div class=\"analysis-subline\">Extrempunkte: " + extremaText + "</div>");
     lines.push("<div class=\"analysis-subline\">Monotonieverhalten: " + monotonicityText + "</div>");
-    lines.push("<div class=\"analysis-line\"><strong>Wendepunkte und Krümmungsverhalten:</strong></div>");
+    lines.push("<div class=\"analysis-line\"><strong>Wendepunkte und Kr\u00fcmmungsverhalten:</strong></div>");
     lines.push("<div class=\"analysis-subline\">Wendepunkte: " + inflectionText + "</div>");
-    lines.push("<div class=\"analysis-subline\">Krümmungsverhalten: " + curvatureText + "</div>");
+    lines.push("<div class=\"analysis-subline\">Kr\u00fcmmungsverhalten: " + curvatureText + "</div>");
     lines.push("<div class=\"analysis-line\"><strong>Skizze Graph von f:</strong> im Bereich Funktionsgraph</div>");
 
     analysisBox.innerHTML = "<h2>Kurvendiskussion</h2><div class=\"analysis-list\">" + prettifyGerman(lines.join("")) + "</div>";
