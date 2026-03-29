@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Informatik: Algorithmen</title>
+    <link rel="stylesheet" href="../styles.css?v=18">
+</head>
+<body>
+<main class="card">
+    <div class="app-shell">
+        <aside class="sidebar">
+            <div class="brand">
+                <h1>Werkzeuge</h1>
+                <p>Die Hauptmenüs sind als eigene Seiten aufgebaut. Informatik hat hier eine eigene Seite mit eigenen Unterpunkten.</p>
+            </div>
+
+            <section class="menu-group">
+                <h2 class="menu-title">Hauptmenü</h2>
+                <div class="menu-list">
+                    <a class="menu-button" href="./index.html">Startseite</a>
+                    <a class="menu-button" href="./mathe.html">Mathe</a>
+                    <a class="menu-button is-active" href="./informatik.html">Informatik</a>
+                </div>
+            </section>
+
+            <section class="menu-group submenu is-active">
+                <h2 class="menu-title">Unterpunkte</h2>
+                <div class="menu-list">
+                    <button class="menu-button is-active" type="button" data-info-target="screen-algorithmen">Algorithmen</button>
+                    <button class="menu-button" type="button" data-info-target="screen-informatik-placeholder">Weiterer Platzhalter</button>
+                </div>
+            </section>
+        </aside>
+
+        <section class="content">
+            <div class="screen is-active" id="screen-algorithmen">
+                <section class="placeholder">
+                    <h2>Algorithmen</h2>
+                    <p>Das ist ein Beispiel für einen zweiten Punkt im Hauptmenü.</p>
+                    <p>Hier könntest du später zum Beispiel Sortierverfahren, Suchalgorithmen oder andere Informatik-Werkzeuge einbauen.</p>
+                </section>
+            </div>
+
+            <div class="screen" id="screen-informatik-placeholder">
+                <section class="placeholder">
+                    <h2>Weiterer Platzhalter</h2>
+                    <p>Hier kannst du später einen weiteren Informatik-Unterpunkt einfügen.</p>
+                    <p>Du musst dafür nur einen neuen Menübutton mit `data-info-target` und einen neuen Bereich mit passender `id` anlegen.</p>
+                </section>
+            </div>
+        </section>
+    </div>
+</main>
+
+<script src="../JavaScript/informatik.js?v=18"></script>
+</body>
+</html>

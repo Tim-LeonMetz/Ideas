@@ -8,10 +8,8 @@ const minXInput = document.getElementById("min-x");
 const maxXInput = document.getElementById("max-x");
 const minYInput = document.getElementById("min-y");
 const maxYInput = document.getElementById("max-y");
-const mainButtons = document.querySelectorAll("[data-main-target]");
 const screenButtons = document.querySelectorAll("[data-screen-target]");
 const screens = document.querySelectorAll(".screen");
-const submenus = document.querySelectorAll("[data-submenu]");
 const defaultTitle = document.title;
 
 let graphBounds = {
@@ -29,15 +27,15 @@ let graphUpdateTimer = null;
 
 function prettifyGerman(text) {
     return String(text || "")
+        .replace(/ÃƒÆ’Ã‚Â¤/g, "\u00e4")
+        .replace(/ÃƒÆ’Ã‚Â¶/g, "\u00f6")
+        .replace(/ÃƒÆ’Ã‚Â¼/g, "\u00fc")
         .replace(/ÃƒÂ¤/g, "\u00e4")
         .replace(/ÃƒÂ¶/g, "\u00f6")
         .replace(/ÃƒÂ¼/g, "\u00fc")
-        .replace(/Ã¤/g, "\u00e4")
-        .replace(/Ã¶/g, "\u00f6")
-        .replace(/Ã¼/g, "\u00fc")
-        .replace(/Ã„/g, "\u00c4")
-        .replace(/Ã–/g, "\u00d6")
-        .replace(/Ãœ/g, "\u00dc")
+        .replace(/Ãƒâ€ž/g, "\u00c4")
+        .replace(/Ãƒâ€“/g, "\u00d6")
+        .replace(/ÃƒÅ“/g, "\u00dc")
         .replace(/ae/g, "\u00e4")
         .replace(/oe/g, "\u00f6")
         .replace(/ue/g, "\u00fc")
@@ -54,18 +52,6 @@ function prettifyGerman(text) {
         .replace(/groesser/g, "gr\u00f6\u00dfer");
 }
 
-function setActiveMainMenu(mainTarget) {
-    mainButtons.forEach(function (button) {
-        button.classList.toggle("is-active", button.dataset.mainTarget === mainTarget);
-    });
-
-    submenus.forEach(function (submenu) {
-        submenu.classList.toggle("is-active", submenu.dataset.submenu === mainTarget);
-    });
-
-    updateDocumentTitle();
-}
-
 function setActiveScreen(screenId) {
     screens.forEach(function (screen) {
         screen.classList.toggle("is-active", screen.id === screenId);
@@ -79,35 +65,13 @@ function setActiveScreen(screenId) {
 }
 
 function updateDocumentTitle() {
-    const activeMainButton = document.querySelector("[data-main-target].is-active");
     const activeScreenButton = document.querySelector("[data-screen-target].is-active");
-    const mainText = activeMainButton ? prettifyGerman(activeMainButton.textContent.trim()) : defaultTitle;
-    const screenText = activeScreenButton ? prettifyGerman(activeScreenButton.textContent.trim()) : "";
-
-    document.title = screenText ? mainText + ": " + screenText : mainText;
+    const screenText = activeScreenButton ? prettifyGerman(activeScreenButton.textContent.trim()) : "Kurvendiskussion";
+    document.title = "Mathe: " + screenText;
 }
-
-mainButtons.forEach(function (button) {
-    button.addEventListener("click", function () {
-        const mainTarget = button.dataset.mainTarget;
-        const firstScreenButton = document.querySelector("[data-submenu=\"" + mainTarget + "\"] [data-screen-target]");
-
-        setActiveMainMenu(mainTarget);
-
-        if (firstScreenButton) {
-            setActiveScreen(firstScreenButton.dataset.screenTarget);
-        }
-    });
-});
 
 screenButtons.forEach(function (button) {
     button.addEventListener("click", function () {
-        const targetScreen = document.getElementById(button.dataset.screenTarget);
-
-        if (targetScreen && targetScreen.dataset.main) {
-            setActiveMainMenu(targetScreen.dataset.main);
-        }
-
         setActiveScreen(button.dataset.screenTarget);
     });
 });
@@ -141,7 +105,7 @@ function wireAnalysisRowToggles() {
 
 function renderAnalysis(analysis) {
     if (!analysis) {
-        analysisBox.innerHTML = "<h2>Kurvendiskussion</h2><p>Keine Analyse verf\u00fcgbar.</p>";
+        analysisBox.innerHTML = "<h2>Kurvendiskussion</h2><p>Keine Analyse verfügbar.</p>";
         return;
     }
 
@@ -150,12 +114,12 @@ function renderAnalysis(analysis) {
         createAnalysisRow("symmetry", "Symmetrieverhalten", analysis.symmetry),
         createAnalysisRow("roots", "Nullstellen", analysis.roots),
         createAnalysisRow("yIntercept", "Schnittpunkt mit der y-Achse", analysis.y_intercept),
-        createAnalysisRow("endBehavior", "Grenzverhalten an den R\u00e4ndern der Definitionsmenge", analysis.end_behavior),
+        createAnalysisRow("endBehavior", "Grenzverhalten an den Rändern der Definitionsmenge", analysis.end_behavior),
         createAnalysisRow("asymptotes", "Asymptoten", analysis.asymptotes),
         createAnalysisRow("extrema", "Extrempunkte", analysis.extrema),
         createAnalysisRow("monotonicity", "Monotonieverhalten", analysis.monotonicity),
         createAnalysisRow("inflection", "Wendepunkte", analysis.inflection),
-        createAnalysisRow("curvature", "Kr\u00fcmmungsverhalten", analysis.curvature)
+        createAnalysisRow("curvature", "Krümmungsverhalten", analysis.curvature)
     ];
 
     analysisBox.innerHTML = "<h2>Kurvendiskussion</h2><div class=\"analysis-list\">" + lines.join("") + "</div>";
@@ -363,7 +327,7 @@ async function requestAnalysis() {
 
 async function runAnalysis() {
     if (!updateGraphBounds()) {
-        renderResult("Bitte w\u00e4hle einen g\u00fcltigen Graphbereich mit min < max.");
+        renderResult("Bitte wähle einen gültigen Graphbereich mit min < max.");
         return;
     }
 
@@ -400,7 +364,7 @@ form.addEventListener("submit", function (event) {
 [minXInput, maxXInput, minYInput, maxYInput].forEach(function (input) {
     input.addEventListener("input", function () {
         if (!updateGraphBounds()) {
-            renderResult("Bitte w\u00e4hle einen g\u00fcltigen Graphbereich mit min < max.");
+            renderResult("Bitte wähle einen gültigen Graphbereich mit min < max.");
             return;
         }
 

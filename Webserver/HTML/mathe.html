@@ -3,8 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mathe Werkzeugkasten</title>
-    <link rel="stylesheet" href="./styles.css?v=16">
+    <title>Mathe: Kurvendiskussion</title>
+    <link rel="stylesheet" href="../styles.css?v=18">
 </head>
 <body>
 <main class="card">
@@ -12,18 +12,19 @@
         <aside class="sidebar">
             <div class="brand">
                 <h1>Werkzeuge</h1>
-                <p>Oben kannst du zwischen Bereichen wechseln. Neue Menüpunkte lassen sich später leicht ergänzen.</p>
+                <p>Die Hauptmenüs sind als eigene Seiten aufgebaut. Von hier aus kannst du direkt zwischen Startseite, Mathe und den Unterpunkten wechseln.</p>
             </div>
 
             <section class="menu-group">
                 <h2 class="menu-title">Hauptmenü</h2>
                 <div class="menu-list">
-                    <button class="menu-button is-active" type="button" data-main-target="math">Mathe</button>
-                    <button class="menu-button" type="button" data-main-target="informatik">Informatik</button>
+                    <a class="menu-button" href="./index.html">Startseite</a>
+                    <a class="menu-button is-active" href="./mathe.html">Mathe</a>
+                    <a class="menu-button" href="./informatik.html">Informatik</a>
                 </div>
             </section>
 
-            <section class="menu-group submenu is-active" id="submenu-math" data-submenu="math">
+            <section class="menu-group submenu is-active">
                 <h2 class="menu-title">Unterpunkte</h2>
                 <div class="menu-list">
                     <button class="menu-button is-active" type="button" data-screen-target="screen-kurvendiskussion">Kurvendiskussion</button>
@@ -31,18 +32,10 @@
                     <button class="menu-button" type="button" data-screen-target="screen-placeholder">Weiterer Platzhalter</button>
                 </div>
             </section>
-
-            <section class="menu-group submenu" id="submenu-informatik" data-submenu="informatik">
-                <h2 class="menu-title">Unterpunkte</h2>
-                <div class="menu-list">
-                    <button class="menu-button" type="button" data-screen-target="screen-algorithmen">Algorithmen</button>
-                    <button class="menu-button" type="button" data-screen-target="screen-informatik-placeholder">Weiterer Platzhalter</button>
-                </div>
-            </section>
         </aside>
 
         <section class="content">
-            <div class="screen is-active" id="screen-kurvendiskussion" data-main="math">
+            <div class="screen is-active" id="screen-kurvendiskussion">
                 <section class="hero">
                     <h2>Kurvendiskussion</h2>
                     <p>Gib eine Funktion in <strong>x</strong> ein, zum Beispiel <strong>x^3-2*x-5</strong>, <strong>sin(x)</strong> oder <strong>x^4-16</strong>.</p>
@@ -92,7 +85,7 @@
                 </section>
             </div>
 
-            <div class="screen" id="screen-funktionsplotter" data-main="math">
+            <div class="screen" id="screen-funktionsplotter">
                 <section class="placeholder">
                     <h2>Funktionsplotter</h2>
                     <p>Das ist ein weiterer Beispiel-Unterpunkt unter Mathe.</p>
@@ -100,26 +93,10 @@
                 </section>
             </div>
 
-            <div class="screen" id="screen-placeholder" data-main="math">
+            <div class="screen" id="screen-placeholder">
                 <section class="placeholder">
                     <h2>Weiterer Platzhalter</h2>
                     <p>Hier kannst du später einen weiteren Mathe-Unterpunkt einfügen.</p>
-                    <p>Du musst dafür nur einen neuen Menübutton mit `data-screen-target` und einen neuen Bereich mit passender `id` anlegen.</p>
-                </section>
-            </div>
-
-            <div class="screen" id="screen-algorithmen" data-main="informatik">
-                <section class="placeholder">
-                    <h2>Algorithmen</h2>
-                    <p>Das ist ein Beispiel für einen zweiten Punkt im Hauptmenü.</p>
-                    <p>Hier könntest du später zum Beispiel Sortierverfahren, Suchalgorithmen oder andere Informatik-Werkzeuge einbauen.</p>
-                </section>
-            </div>
-
-            <div class="screen" id="screen-informatik-placeholder" data-main="informatik">
-                <section class="placeholder">
-                    <h2>Weiterer Platzhalter</h2>
-                    <p>Hier kannst du später einen weiteren Informatik-Unterpunkt einfügen.</p>
                     <p>Du musst dafür nur einen neuen Menübutton mit `data-screen-target` und einen neuen Bereich mit passender `id` anlegen.</p>
                 </section>
             </div>
@@ -127,6 +104,6 @@
     </div>
 </main>
 
-<script src="./app.js?v=16"></script>
+<script src="../JavaScript/app.js?v=18"></script>
 </body>
 </html>

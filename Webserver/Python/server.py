@@ -29,7 +29,7 @@ def parse_bounds(payload: dict) -> tuple[float, float]:
 
 @app.get("/")
 def index() -> object:
-    return send_from_directory(WEB_DIR, "index.html")
+    return send_from_directory(WEB_DIR / "HTML", "index.html")
 
 
 @app.post("/api/analyze")
