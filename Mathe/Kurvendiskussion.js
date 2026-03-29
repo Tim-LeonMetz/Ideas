@@ -26,7 +26,7 @@ function prepareExpression(input) {
         return null;
     }
 
-    const withPowers = withoutEquals.replace(/\^/g, "**");
+    const withPowers = replacePowerSyntax(withoutEquals);
     const withFunctions = withPowers
         .replace(/sin\(/g, "Math.sin(")
         .replace(/cos\(/g, "Math.cos(")
@@ -40,17 +40,117 @@ function prepareExpression(input) {
         .replace(/\bpi\b/g, "Math.PI")
         .replace(/\be\b/g, "Math.E");
 
-    const withImplicitMultiplication = withConstants
-        .replace(/(\d)(x|Math\.)/g, "$1*$2")
-        .replace(/(\d)\(/g, "$1*(")
-        .replace(/(\))(x|\d|Math\.)/g, "$1*$2")
-        .replace(/(x)(\d|Math\.|\()/g, "$1*$2");
+    const withImplicitMultiplication = addImplicitMultiplication(withConstants);
 
-    if (!/^[0-9x+\-*/().A-Za-z_]*$/.test(withImplicitMultiplication)) {
+    if (!/^[0-9x+\-*/().,A-Za-z_]*$/.test(withImplicitMultiplication)) {
         return null;
     }
 
     return withImplicitMultiplication;
+}
+
+function replacePowerSyntax(expression) {
+    let result = expression;
+
+    while (result.includes("^")) {
+        const caretIndex = result.indexOf("^");
+        const leftInfo = extractLeftOperand(result, caretIndex - 1);
+        const rightInfo = extractRightOperand(result, caretIndex + 1);
+
+        if (!leftInfo || !rightInfo) {
+            return result;
+        }
+
+        const replacement = "Math.pow(" + leftInfo.value + "," + rightInfo.value + ")";
+        result = result.slice(0, leftInfo.start) + replacement + result.slice(rightInfo.end + 1);
+    }
+
+    return result;
+}
+
+function extractLeftOperand(expression, index) {
+    if (index < 0) {
+        return null;
+    }
+
+    if (expression[index] === ")") {
+        let depth = 1;
+
+        for (let i = index - 1; i >= 0; i -= 1) {
+            if (expression[i] === ")") {
+                depth += 1;
+            } else if (expression[i] === "(") {
+                depth -= 1;
+            }
+
+            if (depth === 0) {
+                return {
+                    start: i,
+                    value: expression.slice(i, index + 1)
+                };
+            }
+        }
+    }
+
+    let start = index;
+
+    while (start >= 0 && /[A-Za-z0-9_.]/.test(expression[start])) {
+        start -= 1;
+    }
+
+    return {
+        start: start + 1,
+        value: expression.slice(start + 1, index + 1)
+    };
+}
+
+function extractRightOperand(expression, index) {
+    if (index >= expression.length) {
+        return null;
+    }
+
+    if (expression[index] === "(") {
+        let depth = 1;
+
+        for (let i = index + 1; i < expression.length; i += 1) {
+            if (expression[i] === "(") {
+                depth += 1;
+            } else if (expression[i] === ")") {
+                depth -= 1;
+            }
+
+            if (depth === 0) {
+                return {
+                    end: i,
+                    value: expression.slice(index, i + 1)
+                };
+            }
+        }
+    }
+
+    let end = index;
+
+    if (expression[end] === "+" || expression[end] === "-") {
+        end += 1;
+    }
+
+    while (end < expression.length && /[A-Za-z0-9_.]/.test(expression[end])) {
+        end += 1;
+    }
+
+    return {
+        end: end - 1,
+        value: expression.slice(index, end)
+    };
+}
+
+function addImplicitMultiplication(expression) {
+    return expression
+        .replace(/(\d)(x|Math\.)/g, "$1*$2")
+        .replace(/(\d)\(/g, "$1*(")
+        .replace(/(x)\(/g, "$1*(")
+        .replace(/(\))(x|\d|Math\.|\()/g, "$1*$2")
+        .replace(/(x)(\d|Math\.|\()/g, "$1*$2");
 }
 
 function createFunction(input) {
