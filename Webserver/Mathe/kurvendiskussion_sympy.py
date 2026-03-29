@@ -320,6 +320,27 @@ def _tan_vertical_asymptotes(expr: sp.Expr, min_x: float = -50.0, max_x: float =
     return points
 
 
+def _tan_asymptote_general(expr: sp.Expr) -> str | None:
+    tangent_atoms = list(expr.atoms(sp.tan))
+
+    if len(tangent_atoms) != 1:
+        return None
+
+    tangent_atom = tangent_atoms[0]
+    argument = sp.expand(tangent_atom.args[0])
+    coefficient = sp.simplify(sp.diff(argument, X))
+
+    if coefficient == 0 or coefficient.free_symbols:
+        return None
+
+    intercept = sp.simplify(argument.subs(X, 0))
+    base = sp.simplify((sp.pi / 2 - intercept) / coefficient)
+    period = sp.simplify(sp.pi / coefficient)
+    return "vertikale Asymptoten " + inline_math(
+        rf"x = {sp.latex(base + K * period)},\; k \in \mathbb{{Z}}"
+    )
+
+
 def _linear_asymptote_data(expr: sp.Expr, direction: Any) -> dict[str, Any] | None:
     slope = sp.simplify(sp.limit(expr / X, X, direction))
 
@@ -420,9 +441,15 @@ def asymptote_data(expr: sp.Expr, domain: sp.Set, min_x: float = -50.0, max_x: f
 
 def compute_asymptotes(expr: sp.Expr, domain: sp.Set) -> str:
     hints: list[str] = []
+    tan_general = _tan_asymptote_general(expr)
+
+    if tan_general:
+        hints.append(tan_general)
 
     for item in asymptote_data(expr, domain):
         if item["type"] == "vertical":
+            if tan_general:
+                continue
             hints.append("vertikale Asymptote " + inline_math(rf"x = {latex_value(item['value'])}"))
         elif item["type"] == "horizontal":
             hints.append("waagerechte Asymptote " + inline_math(rf"y = {latex_value(item['value'])}"))
@@ -625,15 +652,31 @@ def root_result_text(root_set: sp.Set) -> str:
     return f"{len(finite_points)} Nullstellen gefunden: {values}"
 
 
-def graph_points(expr: sp.Expr, min_x: float, max_x: float, samples: int = 500) -> list[Any]:
+def graph_points(
+    expr: sp.Expr,
+    min_x: float,
+    max_x: float,
+    asymptotes: list[dict[str, Any]] | None = None,
+    samples: int = 900,
+) -> list[Any]:
     if min_x >= max_x:
         raise ValueError("Der Graphbereich ist ungueltig.")
 
     points: list[Any] = []
     step = (max_x - min_x) / max(samples - 1, 1)
+    vertical_asymptotes = [
+        item["value"]
+        for item in (asymptotes or [])
+        if item["type"] == "vertical"
+    ]
 
     for index in range(samples):
         x_value = min_x + index * step
+
+        if any(abs(x_value - asymptote) < step * 1.5 for asymptote in vertical_asymptotes):
+            points.append(None)
+            continue
+
         y_value = sample_expression(expr, x_value)
         points.append(None if y_value is None else [x_value, y_value])
 
@@ -685,6 +728,8 @@ def analyze_expression(expression_text: str, min_x: float, max_x: float) -> Anal
         )
     )
 
+    visible_asymptotes = asymptote_data(expr, domain, min_x=min_x, max_x=max_x)
+
     analysis = {
         "domain": format_set(domain),
         "symmetry": compute_symmetry(expr),
@@ -705,8 +750,8 @@ def analyze_expression(expression_text: str, min_x: float, max_x: float) -> Anal
         result_text=root_result_text(root_set),
         analysis=analysis,
         graph={
-            "points": graph_points(expr, min_x, max_x),
+            "points": graph_points(expr, min_x, max_x, asymptotes=visible_asymptotes),
             "zeros": visible_finite_roots(root_set, min_x, max_x),
-            "asymptotes": asymptote_data(expr, domain, min_x=min_x, max_x=max_x),
+            "asymptotes": visible_asymptotes,
         },
     )
