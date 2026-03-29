@@ -37,7 +37,20 @@ sudo nginx -t
 sudo systemctl restart nginx
 ```
 
-## 5. Webserver aktivieren
+## 5. Kurzbefehl fuer Updates aktivieren
+
+```bash
+sudo cp deploy/update /usr/local/bin/update
+sudo chmod +x /usr/local/bin/update
+```
+
+Danach funktioniert:
+
+```bash
+update repo
+```
+
+## 6. Webserver aktivieren
 
 ```bash
 sudo systemctl daemon-reload

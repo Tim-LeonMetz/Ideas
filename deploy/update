@@ -1,0 +1,10 @@
+#!/bin/bash
+set -euo pipefail
+
+if [ "${1:-}" = "repo" ]; then
+    sudo systemctl start ideas-update.service
+    exit 0
+fi
+
+echo "Verwendung: update repo"
+exit 1
