@@ -24,6 +24,7 @@ let graphBounds = {
 let currentExpression = "";
 let currentGraphPoints = [];
 let currentZeros = [];
+let currentAsymptotes = [];
 let graphUpdateTimer = null;
 
 function prettifyGerman(text) {
@@ -225,11 +226,66 @@ function drawAxes() {
     context.moveTo(0, mapY(0));
     context.lineTo(canvas.width, mapY(0));
     context.stroke();
+
+    context.fillStyle = "#334155";
+    context.font = "16px Segoe UI";
+    context.fillText("x", canvas.width - 18, mapY(0) - 10);
+    context.fillText("y", mapX(0) + 10, 18);
+    context.font = "13px Segoe UI";
+    context.fillText("0", mapX(0) + 6, mapY(0) - 6);
 }
 
-function drawGraph(points, zeros) {
+function drawAsymptotes(asymptotes) {
+    context.save();
+    context.setLineDash([10, 7]);
+    context.lineWidth = 2;
+    context.strokeStyle = "#0f766e";
+
+    asymptotes.forEach(function (asymptote) {
+        if (asymptote.type === "vertical") {
+            if (asymptote.value < graphBounds.minX || asymptote.value > graphBounds.maxX) {
+                return;
+            }
+
+            const pixelX = mapX(asymptote.value);
+            context.beginPath();
+            context.moveTo(pixelX, 0);
+            context.lineTo(pixelX, canvas.height);
+            context.stroke();
+            return;
+        }
+
+        if (asymptote.type === "horizontal") {
+            if (asymptote.value < graphBounds.minY || asymptote.value > graphBounds.maxY) {
+                return;
+            }
+
+            const pixelY = mapY(asymptote.value);
+            context.beginPath();
+            context.moveTo(0, pixelY);
+            context.lineTo(canvas.width, pixelY);
+            context.stroke();
+            return;
+        }
+
+        if (asymptote.type === "slant") {
+            const leftY = asymptote.slope * graphBounds.minX + asymptote.intercept;
+            const rightY = asymptote.slope * graphBounds.maxX + asymptote.intercept;
+
+            context.beginPath();
+            context.moveTo(mapX(graphBounds.minX), mapY(leftY));
+            context.lineTo(mapX(graphBounds.maxX), mapY(rightY));
+            context.stroke();
+        }
+    });
+
+    context.restore();
+}
+
+function drawGraph(points, zeros, asymptotes) {
     context.clearRect(0, 0, canvas.width, canvas.height);
     drawAxes();
+    drawAsymptotes(asymptotes);
 
     context.strokeStyle = "#d97706";
     context.lineWidth = 3;
@@ -300,7 +356,7 @@ async function runAnalysis() {
     if (!currentExpression) {
         renderResult("Bitte gib eine Funktion ein.");
         renderAnalysis(null);
-        drawGraph([], []);
+        drawGraph([], [], []);
         return;
     }
 
@@ -308,14 +364,15 @@ async function runAnalysis() {
         const payload = await requestAnalysis();
         currentGraphPoints = payload.graph.points || [];
         currentZeros = payload.graph.zeros || [];
+        currentAsymptotes = payload.graph.asymptotes || [];
 
         renderResult(payload.resultText);
         renderAnalysis(payload.analysis);
-        drawGraph(currentGraphPoints, currentZeros);
+        drawGraph(currentGraphPoints, currentZeros, currentAsymptotes);
     } catch (error) {
         renderResult("Interner Fehler: " + prettifyGerman(error.message));
         renderAnalysis(null);
-        drawGraph([], []);
+        drawGraph([], [], []);
     }
 }
 
@@ -331,7 +388,7 @@ form.addEventListener("submit", function (event) {
             return;
         }
 
-        drawGraph(currentGraphPoints, currentZeros);
+        drawGraph(currentGraphPoints, currentZeros, currentAsymptotes);
 
         if (!currentExpression) {
             return;
@@ -344,6 +401,6 @@ form.addEventListener("submit", function (event) {
     });
 });
 
-drawGraph([], []);
+drawGraph([], [], []);
 renderAnalysis(null);
 updateDocumentTitle();

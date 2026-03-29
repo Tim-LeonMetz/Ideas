@@ -197,7 +197,7 @@ def compute_end_behavior(expr: sp.Expr) -> str:
     return f"x -> -inf: {limit_text(left)}; x -> +inf: {limit_text(right)}"
 
 
-def _vertical_asymptotes(expr: sp.Expr, domain: sp.Set) -> list[str]:
+def _vertical_asymptote_points(expr: sp.Expr, domain: sp.Set) -> list[sp.Expr]:
     try:
         singular_points = singularities(expr, X, domain=sp.S.Reals)
     except Exception:  # noqa: BLE001
@@ -215,12 +215,12 @@ def _vertical_asymptotes(expr: sp.Expr, domain: sp.Set) -> list[str]:
         right = sp.limit(expr, X, point, dir="+")
 
         if left in (sp.oo, -sp.oo) or right in (sp.oo, -sp.oo):
-            found.append(f"x = {format_number(point)}")
+            found.append(point)
 
     return found
 
 
-def _linear_asymptote(expr: sp.Expr, direction: Any) -> str | None:
+def _linear_asymptote_data(expr: sp.Expr, direction: Any) -> dict[str, Any] | None:
     slope = sp.simplify(sp.limit(expr / X, X, direction))
 
     if slope in (sp.oo, -sp.oo, sp.nan, sp.zoo):
@@ -232,23 +232,74 @@ def _linear_asymptote(expr: sp.Expr, direction: Any) -> str | None:
         return None
 
     if slope == 0:
-        return f"waagerechte Asymptote y = {format_number(intercept)}"
+        return {
+            "type": "horizontal",
+            "value": float(sp.N(intercept)),
+        }
 
     sign = "+" if sp.N(intercept) >= 0 else "-"
     intercept_text = format_number(abs(sp.N(intercept)))
-    return f"schiefe Asymptote y = {format_number(slope)}*x {sign} {intercept_text}"
+    return {
+        "type": "slant",
+        "slope": float(sp.N(slope)),
+        "intercept": float(sp.N(intercept)),
+        "text": f"schiefe Asymptote y = {format_number(slope)}*x {sign} {intercept_text}",
+    }
+
+
+def asymptote_data(expr: sp.Expr, domain: sp.Set) -> list[dict[str, Any]]:
+    items: list[dict[str, Any]] = []
+
+    for point in _vertical_asymptote_points(expr, domain):
+        items.append(
+            {
+                "type": "vertical",
+                "value": float(sp.N(point)),
+            }
+        )
+
+    for direction in (-sp.oo, sp.oo):
+        item = _linear_asymptote_data(expr, direction)
+        if not item:
+            continue
+
+        if item["type"] == "horizontal":
+            duplicate = any(
+                existing["type"] == "horizontal"
+                and abs(existing["value"] - item["value"]) < 1e-9
+                for existing in items
+            )
+            if not duplicate:
+                items.append(item)
+            continue
+
+        duplicate = any(
+            existing["type"] == "slant"
+            and abs(existing["slope"] - item["slope"]) < 1e-9
+            and abs(existing["intercept"] - item["intercept"]) < 1e-9
+            for existing in items
+        )
+        if not duplicate:
+            items.append(item)
+
+    return items
 
 
 def compute_asymptotes(expr: sp.Expr, domain: sp.Set) -> str:
     hints: list[str] = []
 
-    for item in _vertical_asymptotes(expr, domain):
-        hints.append(f"vertikale Asymptote {item}")
-
-    for direction in (-sp.oo, sp.oo):
-        asymptote = _linear_asymptote(expr, direction)
-        if asymptote and asymptote not in hints:
-            hints.append(asymptote)
+    for item in asymptote_data(expr, domain):
+        if item["type"] == "vertical":
+            hints.append(f"vertikale Asymptote x = {format_number(item['value'])}")
+        elif item["type"] == "horizontal":
+            hints.append(f"waagerechte Asymptote y = {format_number(item['value'])}")
+        elif item["type"] == "slant":
+            sign = "+" if item["intercept"] >= 0 else "-"
+            intercept_text = format_number(abs(item["intercept"]))
+            hints.append(
+                "schiefe Asymptote y = "
+                f"{format_number(item['slope'])}*x {sign} {intercept_text}"
+            )
 
     return ", ".join(hints) if hints else "keine offensichtlichen Asymptoten erkannt"
 
@@ -519,5 +570,6 @@ def analyze_expression(expression_text: str, min_x: float, max_x: float) -> Anal
         graph={
             "points": graph_points(expr, min_x, max_x),
             "zeros": visible_finite_roots(root_set, min_x, max_x),
+            "asymptotes": asymptote_data(expr, domain),
         },
     )
