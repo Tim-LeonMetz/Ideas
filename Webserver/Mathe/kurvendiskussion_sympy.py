@@ -212,7 +212,10 @@ def compute_symmetry(expr: sp.Expr) -> str:
 
 def limit_text(value: Any) -> str:
     try:
-        return format_number(sp.simplify(value))
+        simplified = sp.simplify(value)
+        if isinstance(simplified, sp.AccumBounds):
+            return "kein endlicher Grenzwert"
+        return format_number(simplified)
     except Exception:  # noqa: BLE001
         return "nicht eindeutig bestimmbar"
 
@@ -221,9 +224,13 @@ def compute_end_behavior(expr: sp.Expr) -> str:
     left = sp.limit(expr, X, -sp.oo)
     right = sp.limit(expr, X, sp.oo)
     return (
-        inline_math(rf"x \to -\infty") + ": " + inline_math(latex_value(left)) +
+        inline_math(rf"x \to -\infty") + ": " + (
+            limit_text(left) if isinstance(sp.simplify(left), sp.AccumBounds) else inline_math(latex_value(left))
+        ) +
         "; " +
-        inline_math(rf"x \to +\infty") + ": " + inline_math(latex_value(right))
+        inline_math(rf"x \to +\infty") + ": " + (
+            limit_text(right) if isinstance(sp.simplify(right), sp.AccumBounds) else inline_math(latex_value(right))
+        )
     )
 
 

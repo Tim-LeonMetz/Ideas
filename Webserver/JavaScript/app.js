@@ -23,6 +23,7 @@ let currentGraphPoints = [];
 let currentZeros = [];
 let currentAsymptotes = [];
 let graphUpdateTimer = null;
+let currentIntroText = "";
 
 function prettifyGerman(text) {
     return String(text || "")
@@ -69,6 +70,15 @@ function updateDocumentTitle() {
     document.title = "Mathe: " + screenText;
 }
 
+function typesetMath() {
+    if (window.MathJax && typeof window.MathJax.typesetPromise === "function") {
+        window.MathJax.typesetClear([analysisBox]);
+        window.MathJax.typesetPromise([analysisBox]).catch(function () {
+            return null;
+        });
+    }
+}
+
 screenButtons.forEach(function (button) {
     button.addEventListener("click", function () {
         setActiveScreen(button.dataset.screenTarget);
@@ -76,7 +86,7 @@ screenButtons.forEach(function (button) {
 });
 
 function renderResult(text) {
-    analysisBox.innerHTML = "<h2>Kurvendiskussion</h2><p class=\"analysis-intro\">" + prettifyGerman(text) + "</p>";
+    currentIntroText = prettifyGerman(text);
 }
 
 function createAnalysisRow(key, label, value) {
@@ -104,7 +114,11 @@ function wireAnalysisRowToggles() {
 
 function renderAnalysis(analysis) {
     if (!analysis) {
-        analysisBox.innerHTML = "<h2>Kurvendiskussion</h2><p>Keine Analyse verfügbar.</p>";
+        analysisBox.innerHTML =
+            "<h2>Kurvendiskussion</h2>" +
+            (currentIntroText ? "<p class=\"analysis-intro\">" + currentIntroText + "</p>" : "") +
+            "<p>Keine Analyse verfügbar.</p>";
+        typesetMath();
         return;
     }
 
@@ -121,8 +135,12 @@ function renderAnalysis(analysis) {
         createAnalysisRow("curvature", "Krümmungsverhalten", analysis.curvature)
     ];
 
-    analysisBox.innerHTML = "<h2>Kurvendiskussion</h2><div class=\"analysis-list\">" + lines.join("") + "</div>";
+    analysisBox.innerHTML =
+        "<h2>Kurvendiskussion</h2>" +
+        (currentIntroText ? "<p class=\"analysis-intro\">" + currentIntroText + "</p>" : "") +
+        "<div class=\"analysis-list\">" + lines.join("") + "</div>";
     wireAnalysisRowToggles();
+    typesetMath();
 }
 
 function updateGraphBounds() {
