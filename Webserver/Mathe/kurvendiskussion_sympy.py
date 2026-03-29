@@ -42,6 +42,9 @@ class AnalysisResult:
     graph: dict[str, Any]
 
 
+K = sp.symbols("k", integer=True)
+
+
 def normalize_expression(text: str) -> str:
     normalized = (text or "").strip()
     normalized = normalized.replace("f(x)=", "").replace("y=", "")
@@ -118,6 +121,31 @@ def format_expr(expr: Any) -> str:
     )
 
 
+def latex_value(value: Any) -> str:
+    if value is None:
+        return r"\text{nicht definiert}"
+
+    simplified = sp.simplify(value)
+
+    if simplified is sp.oo:
+        return r"+\infty"
+
+    if simplified is -sp.oo:
+        return r"-\infty"
+
+    if simplified.has(sp.zoo, sp.nan):
+        return r"\text{nicht definiert}"
+
+    if simplified.is_real is False:
+        return r"\text{nicht reell}"
+
+    return sp.latex(simplified)
+
+
+def inline_math(tex: str) -> str:
+    return rf"\({tex}\)"
+
+
 def format_interval(interval: sp.Interval) -> str:
     left_bracket = "[" if not interval.left_open else "("
     right_bracket = "]" if not interval.right_open else ")"
@@ -129,22 +157,21 @@ def format_interval(interval: sp.Interval) -> str:
 
 def format_set(set_obj: sp.Set) -> str:
     if set_obj is sp.S.Reals:
-        return "alle reellen Zahlen"
+        return inline_math(r"\mathbb{R}")
 
     if set_obj is sp.S.EmptySet:
-        return "leere Menge"
+        return inline_math(r"\varnothing")
 
     if isinstance(set_obj, sp.Interval):
-        return format_interval(set_obj)
+        return inline_math(sp.latex(set_obj))
 
     if isinstance(set_obj, sp.Union):
-        return " U ".join(format_set(arg) for arg in set_obj.args)
+        return inline_math(sp.latex(set_obj))
 
     if isinstance(set_obj, sp.FiniteSet):
-        values = sorted(set_obj, key=sp.default_sort_key)
-        return ", ".join(format_number(value) for value in values)
+        return inline_math(sp.latex(set_obj))
 
-    return format_expr(set_obj)
+    return inline_math(sp.latex(set_obj))
 
 
 def format_solution_set(solution_set: sp.Set) -> str:
@@ -153,7 +180,7 @@ def format_solution_set(solution_set: sp.Set) -> str:
 
     if isinstance(solution_set, sp.FiniteSet):
         values = sorted(solution_set, key=sp.default_sort_key)
-        return ", ".join(format_number(value) for value in values)
+        return ", ".join(inline_math(latex_value(value)) for value in values)
 
     if isinstance(solution_set, sp.Union):
         return "; ".join(format_solution_set(arg) for arg in solution_set.args)
@@ -161,17 +188,16 @@ def format_solution_set(solution_set: sp.Set) -> str:
     if isinstance(solution_set, ImageSet):
         try:
             variable = solution_set.lamda.variables[0]
-            formula = solution_set.lamda.expr
-            formula_text = format_expr(formula).replace(str(variable), "k")
+            formula = sp.simplify(solution_set.lamda.expr.subs(variable, K))
             if solution_set.base_set == sp.S.Integers:
-                return f"x = {formula_text}, k in Z"
+                return inline_math(rf"x = {sp.latex(formula)},\; k \in \mathbb{{Z}}")
         except Exception:  # noqa: BLE001
-            return format_expr(solution_set)
+            return inline_math(sp.latex(solution_set))
 
     if isinstance(solution_set, sp.ConditionSet):
         return "keine geschlossene Darstellung gefunden"
 
-    return format_expr(solution_set)
+    return inline_math(sp.latex(solution_set))
 
 
 def compute_symmetry(expr: sp.Expr) -> str:
@@ -194,7 +220,11 @@ def limit_text(value: Any) -> str:
 def compute_end_behavior(expr: sp.Expr) -> str:
     left = sp.limit(expr, X, -sp.oo)
     right = sp.limit(expr, X, sp.oo)
-    return f"x -> -inf: {limit_text(left)}; x -> +inf: {limit_text(right)}"
+    return (
+        inline_math(rf"x \to -\infty") + ": " + inline_math(latex_value(left)) +
+        "; " +
+        inline_math(rf"x \to +\infty") + ": " + inline_math(latex_value(right))
+    )
 
 
 def _vertical_asymptote_points(expr: sp.Expr, domain: sp.Set) -> list[sp.Expr]:
@@ -290,15 +320,14 @@ def compute_asymptotes(expr: sp.Expr, domain: sp.Set) -> str:
 
     for item in asymptote_data(expr, domain):
         if item["type"] == "vertical":
-            hints.append(f"vertikale Asymptote x = {format_number(item['value'])}")
+            hints.append("vertikale Asymptote " + inline_math(rf"x = {latex_value(item['value'])}"))
         elif item["type"] == "horizontal":
-            hints.append(f"waagerechte Asymptote y = {format_number(item['value'])}")
+            hints.append("waagerechte Asymptote " + inline_math(rf"y = {latex_value(item['value'])}"))
         elif item["type"] == "slant":
-            sign = "+" if item["intercept"] >= 0 else "-"
-            intercept_text = format_number(abs(item["intercept"]))
             hints.append(
-                "schiefe Asymptote y = "
-                f"{format_number(item['slope'])}*x {sign} {intercept_text}"
+                "schiefe Asymptote " + inline_math(
+                    rf"y = {latex_value(item['slope'])}x + {latex_value(item['intercept'])}"
+                )
             )
 
     return ", ".join(hints) if hints else "keine offensichtlichen Asymptoten erkannt"
@@ -345,7 +374,9 @@ def classify_extrema(expr: sp.Expr, domain: sp.Set) -> tuple[str, list[sp.Expr]]
             point_type = "kritischer Punkt"
 
         parts.append(
-            f"{point_type} ({format_number(point)} | {format_number(y_value)})"
+            f"{point_type} " + inline_math(
+                rf"\left({latex_value(point)}, {latex_value(y_value)}\right)"
+            )
         )
 
     return ", ".join(parts), critical_points
@@ -381,7 +412,9 @@ def classify_inflection_points(expr: sp.Expr, domain: sp.Set) -> tuple[str, list
         return "keine erkannt", []
 
     parts = [
-        f"({format_number(point)} | {format_number(sp.simplify(expr.subs(X, point)))})"
+        inline_math(
+            rf"\left({latex_value(point)}, {latex_value(sp.simplify(expr.subs(X, point)))}\right)"
+        )
         for point in confirmed_points
     ]
     return ", ".join(parts), confirmed_points
@@ -469,9 +502,9 @@ def choose_sample_point(left: Any, right: Any) -> float:
 
 
 def format_interval_text(left: Any, right: Any) -> str:
-    left_text = "-inf" if left is -sp.oo else format_number(left)
-    right_text = "+inf" if right is sp.oo else format_number(right)
-    return f"({left_text}, {right_text})"
+    left_text = r"-\infty" if left is -sp.oo else latex_value(left)
+    right_text = r"+\infty" if right is sp.oo else latex_value(right)
+    return inline_math(rf"\left({left_text}, {right_text}\right)")
 
 
 def root_result_text(root_set: sp.Set) -> str:
@@ -483,9 +516,9 @@ def root_result_text(root_set: sp.Set) -> str:
         return f"Nullstellen: {format_solution_set(root_set)}"
 
     if len(finite_points) == 1:
-        return f"Eine Nullstelle gefunden: {format_number(finite_points[0])}"
+        return "Eine Nullstelle gefunden: " + inline_math(rf"x = {latex_value(finite_points[0])}")
 
-    values = ", ".join(format_number(point) for point in finite_points)
+    values = ", ".join(inline_math(rf"x = {latex_value(point)}") for point in finite_points)
     return f"{len(finite_points)} Nullstellen gefunden: {values}"
 
 
@@ -554,7 +587,7 @@ def analyze_expression(expression_text: str, min_x: float, max_x: float) -> Anal
         "roots": format_solution_set(root_set),
         "y_intercept": "nicht definiert"
         if y_intercept is None
-        else f"(0 | {format_number(y_intercept)})",
+        else inline_math(rf"\left(0, {latex_value(y_intercept)}\right)"),
         "end_behavior": compute_end_behavior(expr),
         "asymptotes": compute_asymptotes(expr, domain),
         "extrema": extrema_text,
