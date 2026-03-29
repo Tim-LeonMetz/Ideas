@@ -20,11 +20,13 @@ except ImportError:
 app = Flask(__name__)
 
 
-def parse_bounds(payload: dict) -> tuple[float, float]:
+def parse_bounds(payload: dict) -> tuple[float, float, float | None, float | None]:
     bounds = payload.get("bounds") or {}
     min_x = float(bounds.get("minX", -10))
     max_x = float(bounds.get("maxX", 10))
-    return min_x, max_x
+    min_y = bounds.get("minY")
+    max_y = bounds.get("maxY")
+    return min_x, max_x, (float(min_y) if min_y is not None else None), (float(max_y) if max_y is not None else None)
 
 
 @app.get("/")
@@ -52,8 +54,8 @@ def analyze() -> object:
     expression = payload.get("expression", "")
 
     try:
-        min_x, max_x = parse_bounds(payload)
-        result: AnalysisResult = analyze_expression(expression, min_x, max_x)
+        min_x, max_x, min_y, max_y = parse_bounds(payload)
+        result: AnalysisResult = analyze_expression(expression, min_x, max_x, min_y=min_y, max_y=max_y)
     except Exception as error:  # noqa: BLE001
         return jsonify({"ok": False, "error": str(error)}), 400
 

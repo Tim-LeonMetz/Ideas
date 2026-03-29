@@ -657,6 +657,8 @@ def graph_points(
     min_x: float,
     max_x: float,
     asymptotes: list[dict[str, Any]] | None = None,
+    min_y: float | None = None,
+    max_y: float | None = None,
     samples: int = 900,
 ) -> list[Any]:
     if min_x >= max_x:
@@ -690,7 +692,16 @@ def graph_points(
         for index in range(segment_samples):
             x_value = segment_start + index * step
             y_value = sample_expression(expr, x_value)
-            points.append(None if y_value is None else [x_value, y_value])
+
+            if y_value is None:
+                points.append(None)
+                continue
+
+            if min_y is not None and max_y is not None and (y_value < min_y or y_value > max_y):
+                points.append(None)
+                continue
+
+            points.append([x_value, y_value])
 
         points.append(None)
 
@@ -709,7 +720,13 @@ def visible_finite_roots(root_set: sp.Set, min_x: float, max_x: float) -> list[f
     return visible
 
 
-def analyze_expression(expression_text: str, min_x: float, max_x: float) -> AnalysisResult:
+def analyze_expression(
+    expression_text: str,
+    min_x: float,
+    max_x: float,
+    min_y: float | None = None,
+    max_y: float | None = None,
+) -> AnalysisResult:
     expr = parse_user_expression(expression_text)
     domain = continuous_domain(expr, X, sp.S.Reals)
     root_set = sp.solveset(sp.Eq(expr, 0), X, domain=domain)
@@ -764,7 +781,14 @@ def analyze_expression(expression_text: str, min_x: float, max_x: float) -> Anal
         result_text=root_result_text(root_set),
         analysis=analysis,
         graph={
-            "points": graph_points(expr, min_x, max_x, asymptotes=visible_asymptotes),
+            "points": graph_points(
+                expr,
+                min_x,
+                max_x,
+                asymptotes=visible_asymptotes,
+                min_y=min_y,
+                max_y=max_y,
+            ),
             "zeros": visible_finite_roots(root_set, min_x, max_x),
             "asymptotes": visible_asymptotes,
         },
