@@ -155,8 +155,7 @@ function renderAnalysis(analysis) {
         createAnalysisRow("extrema", "Extrempunkte", analysis.extrema),
         createAnalysisRow("monotonicity", "Monotonieverhalten", analysis.monotonicity),
         createAnalysisRow("inflection", "Wendepunkte", analysis.inflection),
-        createAnalysisRow("curvature", "Kr\u00fcmmungsverhalten", analysis.curvature),
-        createAnalysisRow("graph", "Skizze Graph von f", analysis.graph)
+        createAnalysisRow("curvature", "Kr\u00fcmmungsverhalten", analysis.curvature)
     ];
 
     analysisBox.innerHTML = "<h2>Kurvendiskussion</h2><div class=\"analysis-list\">" + lines.join("") + "</div>";
