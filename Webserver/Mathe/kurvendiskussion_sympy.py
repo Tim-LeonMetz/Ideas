@@ -679,7 +679,7 @@ def graph_points(
         if width <= 0:
             continue
 
-        epsilon = min(max(width * 0.08, 0.04), 0.22)
+        epsilon = min(max(width * 0.006, 0.0015), 0.02)
         segment_start = left if left == min_x else left + epsilon
         segment_end = right if right == max_x else right - epsilon
 
