@@ -663,22 +663,36 @@ def graph_points(
         raise ValueError("Der Graphbereich ist ungueltig.")
 
     points: list[Any] = []
-    step = (max_x - min_x) / max(samples - 1, 1)
-    vertical_asymptotes = [
+    vertical_asymptotes = sorted(
+        [
         item["value"]
         for item in (asymptotes or [])
         if item["type"] == "vertical"
-    ]
+        ]
+    )
+    boundaries = [min_x] + vertical_asymptotes + [max_x]
 
-    for index in range(samples):
-        x_value = min_x + index * step
-
-        if any(abs(x_value - asymptote) < step * 1.5 for asymptote in vertical_asymptotes):
-            points.append(None)
+    for left, right in zip(boundaries, boundaries[1:]):
+        width = right - left
+        if width <= 0:
             continue
 
-        y_value = sample_expression(expr, x_value)
-        points.append(None if y_value is None else [x_value, y_value])
+        epsilon = min(max(width * 0.04, 0.02), 0.15)
+        segment_start = left if left == min_x else left + epsilon
+        segment_end = right if right == max_x else right - epsilon
+
+        if segment_end <= segment_start:
+            continue
+
+        segment_samples = max(40, int(samples * ((segment_end - segment_start) / (max_x - min_x))))
+        step = (segment_end - segment_start) / max(segment_samples - 1, 1)
+
+        for index in range(segment_samples):
+            x_value = segment_start + index * step
+            y_value = sample_expression(expr, x_value)
+            points.append(None if y_value is None else [x_value, y_value])
+
+        points.append(None)
 
     return points
 
