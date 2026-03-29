@@ -6,11 +6,14 @@ from pathlib import Path
 from flask import Flask, jsonify, request, send_from_directory
 
 
-ROOT = Path(__file__).resolve().parent.parent
-WEB_DIR = ROOT / "Webserver"
+WEB_DIR = Path(__file__).resolve().parent
+ROOT = WEB_DIR.parent
 sys.path.insert(0, str(ROOT))
 
-from Mathe.kurvendiskussion_sympy import AnalysisResult, analyze_expression  # noqa: E402
+try:
+    from Webserver.Mathe.kurvendiskussion_sympy import AnalysisResult, analyze_expression  # noqa: E402
+except ImportError:
+    from Mathe.kurvendiskussion_sympy import AnalysisResult, analyze_expression  # noqa: E402
 
 
 app = Flask(__name__, static_folder=str(WEB_DIR), static_url_path="")

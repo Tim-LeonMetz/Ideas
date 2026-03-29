@@ -1,0 +1,10 @@
+[Unit]
+Description=Update Ideas project
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=tim
+WorkingDirectory=/home/tim/Ideas
+ExecStart=/home/tim/Ideas/deploy/update.sh

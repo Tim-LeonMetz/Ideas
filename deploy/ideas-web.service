@@ -1,0 +1,14 @@
+[Unit]
+Description=Ideas Webserver
+After=network.target
+
+[Service]
+Type=simple
+User=tim
+WorkingDirectory=/home/tim/Ideas
+ExecStart=/home/tim/Ideas/.venv/bin/gunicorn --workers 2 --bind 127.0.0.1:8000 Webserver.wsgi:app
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,11 @@
+[Unit]
+Description=Run Ideas updates regularly
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=10min
+Unit=ideas-update.service
+
+[Install]
+WantedBy=timers.target
+
