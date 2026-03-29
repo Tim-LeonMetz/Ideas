@@ -283,13 +283,13 @@ function drawGraph(points, zeros, asymptotes) {
         const x = point[0];
         const y = point[1];
 
-        if (y < graphBounds.minY - 2 || y > graphBounds.maxY + 2) {
+        if (y < graphBounds.minY - 1 || y > graphBounds.maxY + 1) {
             started = false;
             previousPoint = null;
             return;
         }
 
-        if (previousPoint && Math.abs(y - previousPoint[1]) > (graphBounds.maxY - graphBounds.minY) * 0.8) {
+        if (previousPoint && Math.abs(y - previousPoint[1]) > (graphBounds.maxY - graphBounds.minY) * 0.35) {
             started = false;
         }
 

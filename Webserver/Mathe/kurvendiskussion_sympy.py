@@ -257,6 +257,69 @@ def _vertical_asymptote_points(expr: sp.Expr, domain: sp.Set) -> list[sp.Expr]:
     return found
 
 
+def _sample_vertical_asymptotes(expr: sp.Expr, min_x: float = -50.0, max_x: float = 50.0, step: float = 0.05) -> list[sp.Expr]:
+    found: list[sp.Expr] = []
+    previous_value = None
+    previous_x = min_x
+    current_x = min_x
+
+    while current_x <= max_x:
+        try:
+            value = complex(sp.N(expr.subs(X, current_x), 20))
+            real_value = value.real if abs(value.imag) < 1e-8 else math.nan
+        except Exception:  # noqa: BLE001
+            real_value = math.nan
+
+        if not math.isfinite(real_value):
+            if previous_value is not None and math.isfinite(previous_value):
+                midpoint = sp.nsimplify((previous_x + current_x) / 2, [sp.pi])
+                if midpoint not in found:
+                    found.append(midpoint)
+            previous_value = None
+            previous_x = current_x
+            current_x += step
+            continue
+
+        if previous_value is not None and math.isfinite(previous_value):
+            if abs(real_value) > 100 and abs(previous_value) > 100 and math.copysign(1, real_value) != math.copysign(1, previous_value):
+                midpoint = sp.nsimplify((previous_x + current_x) / 2, [sp.pi])
+                if midpoint not in found:
+                    found.append(midpoint)
+
+        previous_value = real_value
+        previous_x = current_x
+        current_x += step
+
+    return found
+
+
+def _tan_vertical_asymptotes(expr: sp.Expr, min_x: float = -50.0, max_x: float = 50.0) -> list[sp.Expr]:
+    tangent_atoms = list(expr.atoms(sp.tan))
+
+    if len(tangent_atoms) != 1:
+        return []
+
+    tangent_atom = tangent_atoms[0]
+    argument = sp.expand(tangent_atom.args[0])
+    coefficient = sp.diff(argument, X)
+
+    if coefficient == 0 or coefficient.free_symbols:
+        return []
+
+    intercept = sp.simplify(argument.subs(X, 0))
+    points: list[sp.Expr] = []
+    k_min = int(math.floor((coefficient * min_x + intercept - sp.pi / 2) / sp.pi)) - 1
+    k_max = int(math.ceil((coefficient * max_x + intercept - sp.pi / 2) / sp.pi)) + 1
+
+    for k_value in range(k_min, k_max + 1):
+        point = sp.simplify((sp.pi / 2 + k_value * sp.pi - intercept) / coefficient)
+        numeric = float(sp.N(point))
+        if min_x <= numeric <= max_x and point not in points:
+            points.append(point)
+
+    return points
+
+
 def _linear_asymptote_data(expr: sp.Expr, direction: Any) -> dict[str, Any] | None:
     slope = sp.simplify(sp.limit(expr / X, X, direction))
 
@@ -284,16 +347,49 @@ def _linear_asymptote_data(expr: sp.Expr, direction: Any) -> dict[str, Any] | No
     }
 
 
-def asymptote_data(expr: sp.Expr, domain: sp.Set) -> list[dict[str, Any]]:
+def asymptote_data(expr: sp.Expr, domain: sp.Set, min_x: float = -50.0, max_x: float = 50.0) -> list[dict[str, Any]]:
     items: list[dict[str, Any]] = []
 
     for point in _vertical_asymptote_points(expr, domain):
+        numeric_point = float(sp.N(point))
+        if numeric_point < min_x or numeric_point > max_x:
+            continue
         items.append(
             {
                 "type": "vertical",
-                "value": float(sp.N(point)),
+                "value": numeric_point,
             }
         )
+
+    if not any(item["type"] == "vertical" for item in items):
+        for point in _tan_vertical_asymptotes(expr, min_x=min_x, max_x=max_x):
+            numeric_point = float(sp.N(point))
+            duplicate = any(
+                item["type"] == "vertical" and abs(item["value"] - numeric_point) < 1e-6
+                for item in items
+            )
+            if not duplicate:
+                items.append(
+                    {
+                        "type": "vertical",
+                        "value": numeric_point,
+                    }
+                )
+
+    if not any(item["type"] == "vertical" for item in items):
+        for point in _sample_vertical_asymptotes(expr, min_x=min_x, max_x=max_x):
+            numeric_point = float(sp.N(point))
+            duplicate = any(
+                item["type"] == "vertical" and abs(item["value"] - numeric_point) < 1e-6
+                for item in items
+            )
+            if not duplicate:
+                items.append(
+                    {
+                        "type": "vertical",
+                        "value": numeric_point,
+                    }
+                )
 
     for direction in (-sp.oo, sp.oo):
         item = _linear_asymptote_data(expr, direction)
@@ -611,6 +707,6 @@ def analyze_expression(expression_text: str, min_x: float, max_x: float) -> Anal
         graph={
             "points": graph_points(expr, min_x, max_x),
             "zeros": visible_finite_roots(root_set, min_x, max_x),
-            "asymptotes": asymptote_data(expr, domain),
+            "asymptotes": asymptote_data(expr, domain, min_x=min_x, max_x=max_x),
         },
     )
