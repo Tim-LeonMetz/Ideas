@@ -86,7 +86,7 @@ screenButtons.forEach(function (button) {
 });
 
 function renderResult(text) {
-    currentIntroText = prettifyGerman(text);
+    currentIntroText = "";
 }
 
 function createAnalysisRow(key, label, value) {
