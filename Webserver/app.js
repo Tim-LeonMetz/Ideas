@@ -17,9 +17,11 @@ let graphBounds = {
     minY: -10,
     maxY: 10
 };
+
 let currentFunction = function (x) {
     return x;
 };
+
 let currentZeros = [0];
 
 function prettifyGerman(text) {
@@ -72,6 +74,31 @@ function renderResult(text) {
     resultBox.innerHTML = "<h2>Ergebnis</h2><p>" + prettifyGerman(text) + "</p>";
 }
 
+function createAnalysisRow(key, label, value) {
+    return "<div class=\"analysis-line\">" +
+        "<label class=\"analysis-toggle-inline\">" +
+        "<input type=\"checkbox\" data-analysis-toggle=\"" + key + "\" checked>" +
+        "<strong>" + label + ":</strong> " +
+        "</label>" +
+        "<span class=\"analysis-value\" data-analysis-value=\"" + key + "\">" + value + "</span>" +
+        "</div>";
+}
+
+function wireAnalysisRowToggles() {
+    analysisBox.querySelectorAll("[data-analysis-toggle]").forEach(function (checkbox) {
+        checkbox.addEventListener("change", function () {
+            const key = checkbox.dataset.analysisToggle;
+            const value = analysisBox.querySelector("[data-analysis-value=\"" + key + "\"]");
+
+            if (!value) {
+                return;
+            }
+
+            value.classList.toggle("is-hidden", !checkbox.checked);
+        });
+    });
+}
+
 function renderAnalysis(analysis) {
     if (!analysis) {
         analysisBox.innerHTML = "<h2>Kurvendiskussion</h2><p>Keine Analyse verf\u00fcgbar.</p>";
@@ -113,21 +140,20 @@ function renderAnalysis(analysis) {
         }
     }
 
-    lines.push("<div class=\"analysis-line\"><strong>Definitionsmenge:</strong> " + analysis.domain + "</div>");
-    lines.push("<div class=\"analysis-line\"><strong>Symmetrieverhalten:</strong> " + analysis.symmetry + "</div>");
-    lines.push("<div class=\"analysis-line\"><strong>Nullstellen:</strong> " + zerosText + "</div>");
-    lines.push("<div class=\"analysis-line\"><strong>Schnittpunkt mit der y-Achse:</strong> " + (analysis.yIntercept === null ? "nicht definiert" : "(0 | " + window.formatNumber(analysis.yIntercept) + ")") + "</div>");
-    lines.push("<div class=\"analysis-line\"><strong>Grenzverhalten an den R\u00e4ndern der Definitionsmenge:</strong> " + analysis.endBehavior + "</div>");
-    lines.push("<div class=\"analysis-line\"><strong>Asymptoten:</strong> " + analysis.asymptotes + "</div>");
-    lines.push("<div class=\"analysis-line\"><strong>Extrempunkte und Monotonieverhalten:</strong></div>");
-    lines.push("<div class=\"analysis-subline\">Extrempunkte: " + extremaText + "</div>");
-    lines.push("<div class=\"analysis-subline\">Monotonieverhalten: " + monotonicityText + "</div>");
-    lines.push("<div class=\"analysis-line\"><strong>Wendepunkte und Kr\u00fcmmungsverhalten:</strong></div>");
-    lines.push("<div class=\"analysis-subline\">Wendepunkte: " + inflectionText + "</div>");
-    lines.push("<div class=\"analysis-subline\">Kr\u00fcmmungsverhalten: " + curvatureText + "</div>");
-    lines.push("<div class=\"analysis-line\"><strong>Skizze Graph von f:</strong> im Bereich Funktionsgraph</div>");
+    lines.push(createAnalysisRow("domain", "Definitionsmenge", analysis.domain));
+    lines.push(createAnalysisRow("symmetry", "Symmetrieverhalten", analysis.symmetry));
+    lines.push(createAnalysisRow("roots", "Nullstellen", zerosText));
+    lines.push(createAnalysisRow("yIntercept", "Schnittpunkt mit der y-Achse", analysis.yIntercept === null ? "nicht definiert" : "(0 | " + window.formatNumber(analysis.yIntercept) + ")"));
+    lines.push(createAnalysisRow("endBehavior", "Grenzverhalten an den R\u00e4ndern der Definitionsmenge", analysis.endBehavior));
+    lines.push(createAnalysisRow("asymptotes", "Asymptoten", analysis.asymptotes));
+    lines.push(createAnalysisRow("extrema", "Extrempunkte", extremaText));
+    lines.push(createAnalysisRow("monotonicity", "Monotonieverhalten", monotonicityText));
+    lines.push(createAnalysisRow("inflection", "Wendepunkte", inflectionText));
+    lines.push(createAnalysisRow("curvature", "Kr\u00fcmmungsverhalten", curvatureText));
+    lines.push(createAnalysisRow("graph", "Skizze Graph von f", "im Bereich Funktionsgraph"));
 
     analysisBox.innerHTML = "<h2>Kurvendiskussion</h2><div class=\"analysis-list\">" + prettifyGerman(lines.join("")) + "</div>";
+    wireAnalysisRowToggles();
 }
 
 function mapX(x) {
@@ -238,7 +264,7 @@ function drawGraph(fn, zeros) {
 
 function redrawCurrentGraph() {
     if (!updateGraphBounds()) {
-        renderResult("Bitte wähle einen gültigen Graphbereich mit min < max.");
+        renderResult("Bitte w\u00e4hle einen g\u00fcltigen Graphbereich mit min < max.");
         return;
     }
 
@@ -248,44 +274,49 @@ function redrawCurrentGraph() {
 form.addEventListener("submit", function (event) {
     event.preventDefault();
 
-    const functionInput = document.getElementById("function-input").value;
-    const result = window.findRoots(functionInput);
-    const fn = window.createFunction(functionInput);
-    const periodicDescription = window.describePeriodicRoots(functionInput);
-    const analysis = window.analyzeFunction(functionInput);
+    try {
+        const functionInput = document.getElementById("function-input").value;
+        const result = window.findRoots(functionInput);
+        const fn = window.createFunction(functionInput);
+        const periodicDescription = window.describePeriodicRoots(functionInput);
+        const analysis = window.analyzeFunction(functionInput);
 
-    if (!result || !fn || !analysis) {
-        renderResult("Bitte gib eine gültige Funktion ein, zum Beispiel x^3-2*x-5, x^4-16 oder sin(x).");
-        renderAnalysis(null);
-        return;
-    }
+        if (!result || !fn || !analysis) {
+            renderResult("Bitte gib eine g\u00fcltige Funktion ein, zum Beispiel x^3-2*x-5, x^4-16 oder sin(x).");
+            renderAnalysis(null);
+            return;
+        }
 
-    if (!updateGraphBounds()) {
-        renderResult("Bitte wähle einen gültigen Graphbereich mit min < max.");
+        if (!updateGraphBounds()) {
+            renderResult("Bitte w\u00e4hle einen g\u00fcltigen Graphbereich mit min < max.");
+            renderAnalysis(analysis);
+            return;
+        }
+
+        currentFunction = fn;
+        currentZeros = result.zeros;
+        drawGraph(currentFunction, currentZeros);
         renderAnalysis(analysis);
-        return;
+
+        if (periodicDescription) {
+            renderResult(periodicDescription);
+            return;
+        }
+
+        if (result.zeros.length === 0) {
+            renderResult(result.message);
+            return;
+        }
+
+        const zeros = result.zeros.map(function (zero) {
+            return Number(zero.toFixed(4));
+        });
+
+        renderResult(result.message + ": " + zeros.join(" und "));
+    } catch (error) {
+        renderResult("Interner Fehler: " + error.message);
+        renderAnalysis(null);
     }
-
-    currentFunction = fn;
-    currentZeros = result.zeros;
-    drawGraph(currentFunction, currentZeros);
-    renderAnalysis(analysis);
-
-    if (periodicDescription) {
-        renderResult(periodicDescription);
-        return;
-    }
-
-    if (result.zeros.length === 0) {
-        renderResult(result.message);
-        return;
-    }
-
-    const zeros = result.zeros.map(function (zero) {
-        return Number(zero.toFixed(4));
-    });
-
-    renderResult(result.message + ": " + zeros.join(" und "));
 });
 
 [minXInput, maxXInput, minYInput, maxYInput].forEach(function (input) {

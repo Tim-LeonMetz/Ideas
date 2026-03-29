@@ -2,10 +2,13 @@ function normalizeExpression(input) {
     return input
         .toLowerCase()
         .replace(/\s+/g, "")
+        .replace(/\u00fc/g, "u")
         .replace(/ü/g, "u")
         .replace(/Ã¼/g, "u")
         .replace(/\u2212/g, "-")
         .replace(/\u00b2/g, "^2")
+        .replace(/\u00d7/g, "*")
+        .replace(/\u00b7/g, "*")
         .replace(/×/g, "*")
         .replace(/·/g, "*")
         .replace(/,/g, ".");
@@ -26,7 +29,8 @@ function prepareExpression(input) {
         return null;
     }
 
-    const withPowers = replacePowerSyntax(withoutEquals);
+    const expandedInput = expandSimpleImplicitMultiplication(withoutEquals);
+    const withPowers = replacePowerSyntax(expandedInput);
     const withFunctions = withPowers
         .replace(/sin\(/g, "Math.sin(")
         .replace(/cos\(/g, "Math.cos(")
@@ -47,6 +51,14 @@ function prepareExpression(input) {
     }
 
     return withImplicitMultiplication;
+}
+
+function expandSimpleImplicitMultiplication(expression) {
+    return expression
+        .replace(/x\(/g, "x*(")
+        .replace(/\)(x)/g, ")*$1")
+        .replace(/(\d)x/g, "$1*x")
+        .replace(/x(\d)/g, "x*$1");
 }
 
 function replacePowerSyntax(expression) {
@@ -215,123 +227,6 @@ function createSecondDerivative(fn) {
     return createDerivative(firstDerivative);
 }
 
-function secantMethod(fn, x0, x1, tolerance, maxIterations) {
-    let previousX = x0;
-    let currentX = x1;
-    let previousY = safeEvaluate(fn, previousX);
-    let currentY = safeEvaluate(fn, currentX);
-
-    if (previousY === null || currentY === null) {
-        return null;
-    }
-
-    for (let iteration = 0; iteration < maxIterations; iteration += 1) {
-        const denominator = currentY - previousY;
-
-        if (Math.abs(denominator) < 1e-12) {
-            return null;
-        }
-
-        const nextX = currentX - currentY * (currentX - previousX) / denominator;
-
-        if (!Number.isFinite(nextX)) {
-            return null;
-        }
-
-        const nextY = safeEvaluate(fn, nextX);
-
-        if (nextY === null) {
-            return null;
-        }
-
-        if (Math.abs(nextY) < tolerance || Math.abs(nextX - currentX) < tolerance) {
-            return nextX;
-        }
-
-        previousX = currentX;
-        previousY = currentY;
-        currentX = nextX;
-        currentY = nextY;
-    }
-
-    return null;
-}
-
-function generateAdaptivePairs() {
-    const pairs = [[-1, 1], [0, 1], [-1, 0]];
-    let radius = 1;
-
-    for (let shell = 0; shell < 10; shell += 1) {
-        const nextRadius = radius * 2;
-        const step = radius / 2;
-
-        for (let x = -nextRadius; x < nextRadius; x += step) {
-            pairs.push([x, x + step]);
-        }
-
-        radius = nextRadius;
-    }
-
-    return pairs;
-}
-
-function findPointsWithSecant(fn, options) {
-    const tolerance = options && options.tolerance ? options.tolerance : 1e-7;
-    const uniquenessTolerance = options && options.uniquenessTolerance ? options.uniquenessTolerance : 1e-3;
-    const maxIterations = options && options.maxIterations ? options.maxIterations : 50;
-    const accept = options && options.accept ? options.accept : function () { return true; };
-
-    const points = [];
-    const pairs = generateAdaptivePairs();
-    const samples = generateAdaptiveSamples();
-
-    samples.forEach(function (sample) {
-        const value = safeEvaluate(fn, sample);
-
-        if (value !== null && Math.abs(value) < 1e-4 && accept(sample)) {
-            addUniquePoint(points, sample, uniquenessTolerance);
-        }
-    });
-
-    pairs.forEach(function (pair) {
-        const root = secantMethod(fn, pair[0], pair[1], tolerance, maxIterations);
-
-        if (root === null) {
-            return;
-        }
-
-        const y = safeEvaluate(fn, root);
-
-        if (y === null || Math.abs(y) > 1e-4 || !accept(root)) {
-            return;
-        }
-
-        addUniquePoint(points, root, uniquenessTolerance);
-    });
-
-    return points.sort(function (a, b) {
-        return a - b;
-    });
-}
-
-function generateAdaptiveSamples() {
-    const samples = [0, 1, -1, 2, -2, 0.5, -0.5];
-    let radius = 1;
-
-    for (let shell = 0; shell < 10; shell += 1) {
-        const nextRadius = radius * 2;
-        const step = Math.max(0.25, radius / 4);
-
-        for (let x = -nextRadius; x <= nextRadius; x += step) {
-            samples.push(Number(x.toFixed(6)));
-        }
-
-        radius = nextRadius;
-    }
-
-    return samples;
-}
-
 function addUniquePoint(points, candidate, tolerance) {
     const roundedCandidate = Number(candidate.toFixed(6));
     const exists = points.some(function (point) {
@@ -343,6 +238,81 @@ function addUniquePoint(points, candidate, tolerance) {
     }
 }
 
+function bisectRoot(fn, left, right, epsilon) {
+    let leftValue = safeEvaluate(fn, left);
+    let rightValue = safeEvaluate(fn, right);
+
+    if (leftValue === null || rightValue === null) {
+        return null;
+    }
+
+    for (let iteration = 0; iteration < 100; iteration += 1) {
+        const middle = (left + right) / 2;
+        const middleValue = safeEvaluate(fn, middle);
+
+        if (middleValue === null) {
+            return null;
+        }
+
+        if (Math.abs(middleValue) < epsilon) {
+            return middle;
+        }
+
+        if (leftValue * middleValue < 0) {
+            right = middle;
+            rightValue = middleValue;
+        } else {
+            left = middle;
+            leftValue = middleValue;
+        }
+
+        if (Math.abs(right - left) < epsilon) {
+            return (left + right) / 2;
+        }
+    }
+
+    return (left + right) / 2;
+}
+
+function findInterestingPoints(fn, minX, maxX, step) {
+    const points = [];
+    let previousX = minX;
+    let previousY = safeEvaluate(fn, previousX);
+
+    if (previousY !== null && Math.abs(previousY) < 1e-4) {
+        addUniquePoint(points, previousX, 1e-3);
+    }
+
+    for (let currentX = minX + step; currentX <= maxX; currentX += step) {
+        const currentY = safeEvaluate(fn, currentX);
+
+        if (currentY === null) {
+            previousX = currentX;
+            previousY = currentY;
+            continue;
+        }
+
+        if (Math.abs(currentY) < 1e-4) {
+            addUniquePoint(points, currentX, 1e-3);
+        }
+
+        if (previousY !== null && previousY * currentY < 0) {
+            const root = bisectRoot(fn, previousX, currentX, 1e-7);
+
+            if (root !== null) {
+                addUniquePoint(points, root, 1e-3);
+            }
+        }
+
+        previousX = currentX;
+        previousY = currentY;
+    }
+
+    return points.sort(function (a, b) {
+        return a - b;
+    });
+}
+
 function findRoots(input) {
     const fn = createFunction(input);
 
@@ -350,11 +320,7 @@ function findRoots(input) {
         return null;
     }
 
-    const roots = findPointsWithSecant(fn, {
-        tolerance: 1e-8,
-        uniquenessTolerance: 1e-3,
-        maxIterations: 60
-    });
+    const roots = findInterestingPoints(fn, -100, 100, 0.5);
 
     return {
         zeros: roots,
@@ -384,18 +350,11 @@ function analyzeFunction(input) {
     const firstDerivative = createDerivative(fn);
     const secondDerivative = createSecondDerivative(fn);
     const roots = findRoots(input);
-    const criticalPoints = findPointsWithSecant(firstDerivative, {
-        tolerance: 1e-7,
-        uniquenessTolerance: 1e-3,
-        maxIterations: 60
-    });
-    const inflectionCandidates = findPointsWithSecant(secondDerivative, {
-        tolerance: 1e-6,
-        uniquenessTolerance: 1e-3,
-        maxIterations: 60
-    });
+    const criticalPoints = findInterestingPoints(firstDerivative, -20, 20, 0.25);
+    const inflectionCandidates = findInterestingPoints(secondDerivative, -20, 20, 0.25);
     const periodicAnalysis = describePeriodicAnalysis(input);
     const normalizedInput = normalizeExpression(input);
+    const affineLike = isAlmostZeroFunction(secondDerivative);
 
     return {
         domain: detectDomain(normalizedInput, fn),
@@ -407,10 +366,28 @@ function analyzeFunction(input) {
         endBehavior: describeEndBehavior(fn),
         asymptotes: detectAsymptotes(normalizedInput, fn),
         extrema: classifyExtrema(fn, firstDerivative, secondDerivative, criticalPoints),
-        inflectionPoints: classifyInflectionPoints(fn, secondDerivative, inflectionCandidates),
+        inflectionPoints: affineLike ? [] : classifyInflectionPoints(fn, secondDerivative, inflectionCandidates),
         monotonicity: buildGlobalBehaviorDescription(firstDerivative, criticalPoints, "monotonicity"),
-        curvature: buildGlobalBehaviorDescription(secondDerivative, inflectionCandidates, "curvature")
+        curvature: affineLike ? ["nicht gekruemmt"] : buildGlobalBehaviorDescription(secondDerivative, inflectionCandidates, "curvature")
     };
+}
+
+function isAlmostZeroFunction(fn) {
+    const samplePoints = [-10, -5, -2, -1, 0, 1, 2, 5, 10];
+
+    for (const point of samplePoints) {
+        const value = safeEvaluate(fn, point);
+
+        if (value === null) {
+            continue;
+        }
+
+        if (Math.abs(value) > 1e-3) {
+            return false;
+        }
+    }
+
+    return true;
 }
 
 function detectDomain(normalizedInput, fn) {
@@ -470,7 +447,13 @@ function detectAsymptotes(normalizedInput, fn) {
     const leftLarge = safeEvaluate(fn, -1000000);
     const rightLarge = safeEvaluate(fn, 1000000);
 
-    if (leftLarge !== null && rightLarge !== null && almostEqual(leftLarge, rightLarge)) {
+    if (
+        leftLarge !== null &&
+        rightLarge !== null &&
+        Math.abs(leftLarge) < 100000 &&
+        Math.abs(rightLarge) < 100000 &&
+        almostEqual(leftLarge, rightLarge)
+    ) {
         hints.push("waagerechte Asymptote y = " + formatNumber((leftLarge + rightLarge) / 2));
     }
 
@@ -818,6 +801,22 @@ function formatPiMultiple(factor) {
 }
 
 function formatNumber(value) {
+    if (typeof value === "string") {
+        return value;
+    }
+
+    if (!Number.isFinite(value)) {
+        if (value === Infinity) {
+            return "+inf";
+        }
+
+        if (value === -Infinity) {
+            return "-inf";
+        }
+
+        return "nicht definiert";
+    }
+
     if (almostEqual(value, 0)) {
         return "0";
     }
@@ -835,3 +834,4 @@ window.describePeriodicRoots = describePeriodicRoots;
 window.analyzeFunction = analyzeFunction;
 window.formatNumber = formatNumber;
 window.usePrettyGerman = true;
+
