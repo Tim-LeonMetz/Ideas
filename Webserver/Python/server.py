@@ -6,7 +6,8 @@ from pathlib import Path
 from flask import Flask, jsonify, request, send_from_directory
 
 
-WEB_DIR = Path(__file__).resolve().parent
+PYTHON_DIR = Path(__file__).resolve().parent
+WEB_DIR = PYTHON_DIR.parent
 ROOT = WEB_DIR.parent
 sys.path.insert(0, str(ROOT))
 
