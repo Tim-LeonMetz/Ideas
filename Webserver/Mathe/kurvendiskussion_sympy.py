@@ -560,7 +560,8 @@ def analyze_expression(expression_text: str, min_x: float, max_x: float) -> Anal
     expr = parse_user_expression(expression_text)
     domain = continuous_domain(expr, X, sp.S.Reals)
     root_set = sp.solveset(sp.Eq(expr, 0), X, domain=domain)
-    y_intercept = sp.simplify(expr.subs(X, 0)) if domain.contains(0) is True else None
+    contains_zero = domain.contains(0)
+    y_intercept = sp.simplify(expr.subs(X, 0)) if contains_zero != False else None
     extrema_text, critical_points = classify_extrema(expr, domain)
     inflection_text, inflection_points = classify_inflection_points(expr, domain)
     first_derivative = sp.simplify(sp.diff(expr, X))
