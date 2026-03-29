@@ -17,7 +17,7 @@ except ImportError:
     from Mathe.kurvendiskussion_sympy import AnalysisResult, analyze_expression  # noqa: E402
 
 
-app = Flask(__name__, static_folder=str(WEB_DIR), static_url_path="")
+app = Flask(__name__)
 
 
 def parse_bounds(payload: dict) -> tuple[float, float]:
@@ -30,6 +30,20 @@ def parse_bounds(payload: dict) -> tuple[float, float]:
 @app.get("/")
 def index() -> object:
     return send_from_directory(WEB_DIR / "HTML", "index.html")
+
+
+@app.get("/<path:filename>")
+def static_files(filename: str) -> object:
+    if filename.endswith(".html"):
+        return send_from_directory(WEB_DIR / "HTML", filename)
+
+    if filename.startswith("JavaScript/"):
+        return send_from_directory(WEB_DIR, filename)
+
+    if filename == "styles.css":
+        return send_from_directory(WEB_DIR, filename)
+
+    return send_from_directory(WEB_DIR, filename)
 
 
 @app.post("/api/analyze")
