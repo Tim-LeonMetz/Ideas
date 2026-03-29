@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Nullstellenrechner</title>
+    <title>Funktionsrechner</title>
     <style>
         :root {
             --bg: linear-gradient(135deg, #f6efe7, #dce8f2);
@@ -97,27 +97,59 @@
         .result p {
             margin: 0;
         }
+
+        .analysis {
+            margin-top: 24px;
+            padding: 18px;
+            border-radius: 18px;
+            background: rgba(255, 255, 255, 0.72);
+            border: 1px solid var(--border);
+        }
+
+        .analysis h2 {
+            margin: 0 0 14px;
+            font-size: 1.15rem;
+        }
+
+        .analysis ul {
+            margin: 0;
+            padding-left: 20px;
+        }
+
+        .analysis li + li {
+            margin-top: 8px;
+        }
+
+        .graph {
+            margin-top: 24px;
+            padding: 18px;
+            border-radius: 18px;
+            background: rgba(255, 255, 255, 0.72);
+            border: 1px solid var(--border);
+        }
+
+        .graph p {
+            margin-bottom: 12px;
+        }
+
+        canvas {
+            width: 100%;
+            height: auto;
+            display: block;
+            border-radius: 14px;
+            background: linear-gradient(180deg, rgba(255, 255, 255, 0.95), rgba(237, 242, 247, 0.9));
+        }
     </style>
 </head>
 <body>
 <main class="card">
     <h1>Nullstellenrechner</h1>
-    <p>Gib die Koeffizienten der quadratischen Gleichung <strong>ax<sup>2</sup> + bx + c = 0</strong> ein.</p>
+    <p>Gib eine Funktion in <strong>x</strong> ein, zum Beispiel <strong>x^3-2*x-5</strong>, <strong>sin(x)</strong> oder <strong>x^4-16</strong>.</p>
 
     <form id="zero-form">
-        <label for="a">
-            Koeffizient a
-            <input id="a" name="a" type="number" step="any" value="1" required>
-        </label>
-
-        <label for="b">
-            Koeffizient b
-            <input id="b" name="b" type="number" step="any" value="-5" required>
-        </label>
-
-        <label for="c">
-            Koeffizient c
-            <input id="c" name="c" type="number" step="any" value="6" required>
+        <label for="function-input">
+            Funktion
+            <input id="function-input" name="function" type="text" placeholder="z. B. x^3-2*x-5 oder sin(x)" required>
         </label>
 
         <button type="submit">Nullstellen berechnen</button>
@@ -125,30 +157,191 @@
 
     <section class="result" id="result">
         <h2>Ergebnis</h2>
-        <p>Bereit zur Berechnung.</p>
+        <p>Bereit zur Berechnung. Gesucht wird im Bereich von -100 bis 100.</p>
+    </section>
+
+    <section class="analysis" id="analysis">
+        <h2>Kurvendiskussion</h2>
+        <p>Nach der Berechnung erscheinen hier weitere Eigenschaften der Funktion.</p>
+    </section>
+
+    <section class="graph">
+        <h2>Funktionsgraph</h2>
+        <p>Ansicht im Bereich x von -10 bis 10 und y von -10 bis 10.</p>
+        <canvas id="graph-canvas" width="900" height="420"></canvas>
     </section>
 </main>
 
-<script src="../Nullstellenrechner/Rechner.js"></script>
+<script src="../Mathe/Kurvendiskussion.js"></script>
 <script>
     const form = document.getElementById("zero-form");
     const resultBox = document.getElementById("result");
+    const analysisBox = document.getElementById("analysis");
+    const canvas = document.getElementById("graph-canvas");
+    const context = canvas.getContext("2d");
+
+    const graphBounds = {
+        minX: -10,
+        maxX: 10,
+        minY: -10,
+        maxY: 10
+    };
 
     function renderResult(text) {
         resultBox.innerHTML = "<h2>Ergebnis</h2><p>" + text + "</p>";
     }
 
+    function renderAnalysis(analysis) {
+        if (!analysis) {
+            analysisBox.innerHTML = "<h2>Kurvendiskussion</h2><p>Keine Analyse verfuegbar.</p>";
+            return;
+        }
+
+        const items = [];
+
+        items.push("<li>Symmetrie: " + analysis.symmetry + "</li>");
+
+        if (analysis.yIntercept === null) {
+            items.push("<li>y-Achsenabschnitt: nicht definiert</li>");
+        } else {
+            items.push("<li>y-Achsenabschnitt: (0 | " + window.formatNumber(analysis.yIntercept) + ")</li>");
+        }
+
+        if (analysis.periodicRoots) {
+            items.push("<li>Nullstellen allgemein: " + analysis.periodicRoots + "</li>");
+        } else if (analysis.roots && analysis.roots.zeros.length > 0) {
+            items.push("<li>Nullstellen: " + analysis.roots.zeros.map(function (zero) {
+                return window.formatNumber(zero);
+            }).join(", ") + "</li>");
+        } else {
+            items.push("<li>Nullstellen: keine im Suchbereich gefunden</li>");
+        }
+
+        if (analysis.extrema.length > 0) {
+            items.push("<li>Extremstellen: " + analysis.extrema.map(function (point) {
+                return point.type + " (" + window.formatNumber(point.x) + " | " + window.formatNumber(point.y) + ")";
+            }).join(", ") + "</li>");
+        } else {
+            items.push("<li>Extremstellen: keine erkannt</li>");
+        }
+
+        if (analysis.inflectionPoints.length > 0) {
+            items.push("<li>Wendepunkte: " + analysis.inflectionPoints.map(function (point) {
+                return "(" + window.formatNumber(point.x) + " | " + window.formatNumber(point.y) + ")";
+            }).join(", ") + "</li>");
+        } else {
+            items.push("<li>Wendepunkte: keine erkannt</li>");
+        }
+
+        items.push("<li>Monotonie im sichtbaren Bereich: " + analysis.monotonicity.join(", ") + "</li>");
+        items.push("<li>Kruemmung im sichtbaren Bereich: " + analysis.curvature.join(", ") + "</li>");
+
+        analysisBox.innerHTML = "<h2>Kurvendiskussion</h2><ul>" + items.join("") + "</ul>";
+    }
+
+    function mapX(x) {
+        return ((x - graphBounds.minX) / (graphBounds.maxX - graphBounds.minX)) * canvas.width;
+    }
+
+    function mapY(y) {
+        return canvas.height - ((y - graphBounds.minY) / (graphBounds.maxY - graphBounds.minY)) * canvas.height;
+    }
+
+    function drawGraph(fn, zeros) {
+        context.clearRect(0, 0, canvas.width, canvas.height);
+
+        context.strokeStyle = "#cbd5e1";
+        context.lineWidth = 1;
+
+        for (let x = Math.ceil(graphBounds.minX); x <= graphBounds.maxX; x += 1) {
+            const pixelX = mapX(x);
+            context.beginPath();
+            context.moveTo(pixelX, 0);
+            context.lineTo(pixelX, canvas.height);
+            context.stroke();
+        }
+
+        for (let y = Math.ceil(graphBounds.minY); y <= graphBounds.maxY; y += 1) {
+            const pixelY = mapY(y);
+            context.beginPath();
+            context.moveTo(0, pixelY);
+            context.lineTo(canvas.width, pixelY);
+            context.stroke();
+        }
+
+        context.strokeStyle = "#475569";
+        context.lineWidth = 2;
+
+        context.beginPath();
+        context.moveTo(mapX(0), 0);
+        context.lineTo(mapX(0), canvas.height);
+        context.stroke();
+
+        context.beginPath();
+        context.moveTo(0, mapY(0));
+        context.lineTo(canvas.width, mapY(0));
+        context.stroke();
+
+        context.strokeStyle = "#d97706";
+        context.lineWidth = 3;
+        context.beginPath();
+
+        let started = false;
+
+        for (let pixelX = 0; pixelX <= canvas.width; pixelX += 1) {
+            const x = graphBounds.minX + (pixelX / canvas.width) * (graphBounds.maxX - graphBounds.minX);
+            const y = fn(x);
+
+            if (!Number.isFinite(y) || y < graphBounds.minY - 50 || y > graphBounds.maxY + 50) {
+                started = false;
+                continue;
+            }
+
+            const pixelY = mapY(y);
+
+            if (!started) {
+                context.moveTo(pixelX, pixelY);
+                started = true;
+            } else {
+                context.lineTo(pixelX, pixelY);
+            }
+        }
+
+        context.stroke();
+
+        context.fillStyle = "#9a3412";
+
+        zeros.forEach(function (zero) {
+            if (zero < graphBounds.minX || zero > graphBounds.maxX) {
+                return;
+            }
+
+            context.beginPath();
+            context.arc(mapX(zero), mapY(0), 5, 0, Math.PI * 2);
+            context.fill();
+        });
+    }
+
     form.addEventListener("submit", function (event) {
         event.preventDefault();
 
-        const a = Number(document.getElementById("a").value);
-        const b = Number(document.getElementById("b").value);
-        const c = Number(document.getElementById("c").value);
+        const functionInput = document.getElementById("function-input").value;
+        const result = window.findRoots(functionInput);
+        const fn = window.createFunction(functionInput);
+        const periodicDescription = window.describePeriodicRoots(functionInput);
+        const analysis = window.analyzeFunction(functionInput);
 
-        const result = window.calculateZeros(a, b, c);
+        if (!result || !fn || !analysis) {
+            renderResult("Bitte gib eine gueltige Funktion ein, zum Beispiel x^3-2*x-5, x^4-16 oder sin(x).");
+            renderAnalysis(null);
+            return;
+        }
 
-        if (!result) {
-            renderResult("Bitte gib fuer a einen Wert ungleich 0 ein.");
+        drawGraph(fn, result.zeros);
+        renderAnalysis(analysis);
+
+        if (periodicDescription) {
+            renderResult(periodicDescription);
             return;
         }
 
@@ -163,6 +356,11 @@
 
         renderResult(result.message + ": " + zeros.join(" und "));
     });
+
+    drawGraph(function (x) {
+        return x;
+    }, [0]);
+    renderAnalysis(null);
 </script>
 </body>
 </html>
