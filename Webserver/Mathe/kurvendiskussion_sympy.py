@@ -659,7 +659,7 @@ def graph_points(
     asymptotes: list[dict[str, Any]] | None = None,
     min_y: float | None = None,
     max_y: float | None = None,
-    samples: int = 900,
+    samples: int = 4000,
 ) -> list[Any]:
     if min_x >= max_x:
         raise ValueError("Der Graphbereich ist ungueltig.")
@@ -679,14 +679,14 @@ def graph_points(
         if width <= 0:
             continue
 
-        epsilon = min(max(width * 0.04, 0.02), 0.15)
+        epsilon = min(max(width * 0.08, 0.04), 0.22)
         segment_start = left if left == min_x else left + epsilon
         segment_end = right if right == max_x else right - epsilon
 
         if segment_end <= segment_start:
             continue
 
-        segment_samples = max(40, int(samples * ((segment_end - segment_start) / (max_x - min_x))))
+        segment_samples = max(140, int(samples * ((segment_end - segment_start) / (max_x - min_x))))
         step = (segment_end - segment_start) / max(segment_samples - 1, 1)
 
         for index in range(segment_samples):
@@ -694,10 +694,6 @@ def graph_points(
             y_value = sample_expression(expr, x_value)
 
             if y_value is None:
-                points.append(None)
-                continue
-
-            if min_y is not None and max_y is not None and (y_value < min_y or y_value > max_y):
                 points.append(None)
                 continue
 

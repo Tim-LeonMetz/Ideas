@@ -174,6 +174,10 @@ function mapY(y) {
     return canvas.height - ((y - graphBounds.minY) / (graphBounds.maxY - graphBounds.minY)) * canvas.height;
 }
 
+function clamp(value, min, max) {
+    return Math.min(Math.max(value, min), max);
+}
+
 function drawAxes() {
     context.strokeStyle = "#cbd5e1";
     context.lineWidth = 1;
@@ -282,7 +286,7 @@ function drawGraph(points, zeros, asymptotes) {
         const y = point[1];
 
         const pixelX = mapX(x);
-        const pixelY = mapY(y);
+        const pixelY = mapY(clamp(y, graphBounds.minY, graphBounds.maxY));
 
         if (!started) {
             context.moveTo(pixelX, pixelY);
